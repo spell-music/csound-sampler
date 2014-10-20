@@ -1,10 +1,11 @@
-{-# Language DeriveFunctor #-}
+-- | The sampler
+{-# Language DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
 module Csound.Sam (
 	Sample, Sam, Bpm, runSam, 
 	-- * Lifters
 	mapBpm, bindSam, bindBpm, liftSam,
 	-- * Constructors
-	sig1, sig2, infSig1, infSig2, rest,
+	sig1, sig2, infSig1, infSig2, fromSig1, fromSig2, rest,
 	-- ** Stereo
 	wav, wavr, seg, segr, rndWav, rndWavr, rndSeg, rndSegr, ramWav,
 	-- ** Mono
@@ -14,11 +15,13 @@ module Csound.Sam (
 	-- * Arrange
 	del, str, wide, flow, pick, pickBy, lim, atPan, atPch, atCps,	
 	-- * Loops
-	loop, rep1, rep, pat1, pat, wall,	
+	loop, rep1, rep, pat1, pat,	
 	-- * Arpeggio
     Chord,
 	arpUp, arpDown, arpOneOf, arpFreqOf,
-	arpUp1, arpDown1, arpOneOf1, arpFreqOf1
+	arpUp1, arpDown1, arpOneOf1, arpFreqOf1,
+    -- * Misc patterns
+    wall, forAirports, genForAirports
 ) where
 
 import Control.Monad.Trans.Class
@@ -70,7 +73,9 @@ instance Fractional a => Fractional (Sample a) where
 instance SigSpace a => SigSpace (Sample a) where
 	mapSig f = fmap (mapSig f)
 
-	
+instance RenderCsd Sam where
+    renderCsdBy opt sample = renderCsdBy opt (runSam (120 * 4) sample)
+
 -- | Hides the effects inside sample.
 liftSam :: Sample (SE a) -> Sample a
 liftSam (Sam ra) = Sam $ do
@@ -95,7 +100,6 @@ bindBpm f (Sam ra) = Sam $ do
 	a <- ra
 	lift $ fmap (\x -> a{ samSig = x}) $ f bpm $ samSig a
 
-
 -- | Constructs sample from mono signal
 infSig1 :: Sig -> Sam
 infSig1 x = pure (x, x)
@@ -111,6 +115,14 @@ sig1 dt a = Sam $ reader $ \_ -> S (a, a) (Dur dt)
 -- | Constructs sample from limited stereo signal (duration is in seconds)
 sig2 :: D -> Sig2 -> Sam
 sig2 dt a = Sam $ reader $ \_ -> S a (Dur dt)
+
+-- | Constructs sample from limited mono signal (duration is in BPMs)
+fromSig1 :: D -> Sig -> Sam
+fromSig1 dt = lim dt . infSig1
+
+-- | Constructs sample from limited stereo signal (duration is in BPMs)
+fromSig2 :: D -> Sig2 -> Sam
+fromSig2 dt = lim dt . infSig2
 
 -- | Constructs silence. The first argument is length in BPMs.
 rest :: D -> Sam
@@ -396,11 +408,11 @@ loop = genLoop $ \_ d asig -> repeatSnd d asig
 
 -- | Plays the sample at the given period (in BPMs). The samples don't overlap.
 rep1 :: D -> Sam -> Sam
-rep1 dt = genLoop $ \bpm _ asig -> repeatSnd (toSec bpm dt) asig
+rep1 = rep . return
 
 -- | Plays the sample at the given period (in BPMs). The overlapped samples are mixed together.
-pat1 :: Sig -> Sam -> Sam
-pat1 dt = genLoop $ \bpm d asig -> sched (const $ return asig) $ withDur d $ metroS bpm dt
+pat1 :: D -> Sam -> Sam
+pat1 = pat . return
 
 -- | Plays the sample at the given pattern of periods (in BPMs). The samples don't overlap.
 rep :: [D] -> Sam -> Sam 
@@ -420,7 +432,7 @@ wall :: D -> Sam -> Sam
 wall dt a = mean [b, del hdt b]
 	where 
 		hdt = 0.5 * dt
-		f = pat1 (sig hdt) . hatEnv . lim dt
+		f = pat1 hdt . hatEnv . lim dt
 		b = f a
 
 -- | The tones of the chord.
@@ -478,4 +490,25 @@ arpFreqOf freqs ch = genArp (freqOf $ zip freqs ch)
 
 metroS :: Bpm -> Sig -> Evt Unit
 metroS bpm dt = metroE (recip $ toSecSig bpm dt)
+
+-- | The pattern is influenced by the Brian Eno's work "Music fo Airports".
+-- The argument is list of tripples:
+--
+-- > (delayTime, repeatPeriod, pitch)
+-- 
+-- It takes a Sample and plays it in the loop with given initial delay time.
+-- The third cell in the tuple pitch is a value for scaling of the pitch in tones.
+forAirports :: [(D, D, D)] -> Sam -> Sam
+forAirports xs sample = mean $ flip fmap xs $ 
+    \(delTime, loopTime, note) -> del delTime $ pat [loopTime] (atPch (sig note) sample)
+
+-- | The pattern is influenced by the Brian Eno's work "Music fo Airports".
+-- It's more generic than pattern @forAirport@
+-- The argument is list of tripples:
+--
+-- > (delayTime, repeatPeriod, Sample)
+-- 
+-- It takes a list of Samples and plays them in the loop with given initial delay time and repeat period.
+genForAirports :: [(D, D, Sam)] -> Sam
+genForAirports xs = mean $ fmap (\(delTime, loopTime, sample) -> del delTime $ pat [loopTime] sample) xs
 

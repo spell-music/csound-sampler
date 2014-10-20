@@ -323,27 +323,6 @@ We can easily create the spinning pan:
 > let songLoop = atPan (uosc 0.1) $ loop song
 ~~~
 
-Tricks with the pitch
--------------------------------------------------
-
-We can change the pitch in the pattern:
-
-~~~{.haskell}
-type Chord = [D]
-
-arpUp, arpDown, arpOneOf :: Chord -> [D] -> Sam -> Sam
-~~~
-
-The chord is the list of steps in semitones. 
-The second argument is for the length of segments in the pattern.
-It's just like in the function `pat`.
-
-Let's play a sample on the major cord tones:
-
-~~~{.haskell}
-arpUp [0, 4, 7] [1] song
-~~~
-
 Playing segments of the audio file
 -----------------------------------------
 
