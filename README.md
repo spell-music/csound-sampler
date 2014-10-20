@@ -1,7 +1,7 @@
 csound-sampler
 ===============================
 
-A csound-sampler is a simple sampler based on csound-expression library.
+A csound-sampler is an easy to use sampler based on csound-expression library.
 
 We can load and play audio files. We can play them back in loops,
 in reverse, at random segments with different pitch, apply 
@@ -250,6 +250,51 @@ pickBy :: Sig -> [(D, Sam)] -> Sam
 The `pickBy` plays samples with given frequencies of occurrence. 
 The sum of the frequencies should be equal to 1. 
 
+
+Playing patterns samples
+------------------------------
+
+We can play sample in the loop. But what's about more complex patterns?
+we can create them with function `pat` (short for pattern):
+
+~~~{.haskell}
+pat :: [D] -> Sam -> Sam
+~~~
+
+The first argument is the list of time length for sequence of loops.
+It's the drum-like pattern:
+
+~~~{.haskell}
+> pat [3, 3, 2] beat
+~~~
+
+It means play the sample `beat` in the loop. The loop spans for 8 beats and
+it contains three segments. The length of each segments is given in the list. 
+
+The pat plays the whole sample. When samples overlap it mixes them together.
+If we want to play just a parts of the sample we can use the function `rep` (short for repeat).
+With it we can create complex drum patterns out of simple samples:
+
+~~~{.haskell}
+> rep [3, 3, 1, 2, 1] beat
+~~~
+
+
+Changing the tempo
+-----------------------------
+
+We can speed up or slow down the sample playback with
+
+~~~{.haskell}
+str, wide :: D -> Sam -> Sam
+
+str  speedUpRate  = ...
+wide slowDownRate = ...
+~~~
+
+It doesn't changes the rate of playback. It changes the BPM measure.
+The looping or limiting functions will respond to the changes.
+
 Changing the pitch and panning
 ------------------------------------
 
@@ -274,6 +319,104 @@ atPan :: Sig -> Sam -> Sam
 The first argument is the panning level. The zero is all left and the one is all right.
 We can easily create the spinning pan:
 
-~~~
+~~~{.haskell}
 > let songLoop = atPan (uosc 0.1) $ loop song
 ~~~
+
+Tricks with the pitch
+-------------------------------------------------
+
+We can change the pitch in the pattern:
+
+~~~{.haskell}
+type Chord = [D]
+
+arpUp, arpDown, arpOneOf :: Chord -> [D] -> Sam -> Sam
+~~~
+
+The chord is the list of steps in semitones. 
+The second argument is for the length of segments in the pattern.
+It's just like in the function `pat`.
+
+Let's play a sample on the major cord tones:
+
+~~~{.haskell}
+arpUp [0, 4, 7] [1] song
+~~~
+
+Playing segments of the audio file
+-----------------------------------------
+
+What if we like just one specific spot in the audio file
+and we want to loop only over it. we can read the segment
+with function:
+
+~~~{.haskell}
+seg :: D -> D -> String -> Sam
+seg startTime endTime fileName = sample
+~~~
+
+The times are measured in seconds. To play the segment in reverse
+we can use the function `segr`. There are mono variants: `seg1` and `segr1`.
+
+
+Playing random segments of the audio file
+-----------------------------------------
+
+We can create complex sound out of the simple one if we play
+segments of it at random:
+
+~~~{.haskell}
+rndSeg :: D -> D -> D -> String -> Sam
+rndSeg segLength startTime endTime fileName = sample
+~~~
+
+The first argument is the length of the segment. 
+If we want to read segments from the entire audio file
+we can use the function:
+
+~~~{.haskell}
+rndWav :: D -> String -> Sam
+rndWav segLength fileName = sample
+~~~
+
+Applying effects
+--------------------------------
+
+The type `Sam` is a synonym for generic type:
+
+~~~{.haskell}
+type Sig2 = (Sig, Sig)
+
+type Sam = Sampler Sig2
+~~~
+
+The `Sampler` is applicative and function. We can easily apply
+an effect with `fmap`:
+
+~~~{.haskell}
+> dac $ fmap magicCave2 $ loop song
+~~~
+
+We applied a reverb (`magicCave2 :: Sig2 -> Sig2`). It's taken from the 
+library csound-expression. 
+
+If our effect produces side effects we can use one of the lifting functions:
+
+~~~{.haskell}
+liftSam :: Sample (SE a) -> Sample a
+bindSam :: (Sig2 -> SE Sig2) -> Sam -> Sam
+~~~
+
+If we want to now the current BPM we can use functions:
+
+~~~{.haskell}
+mapBpm :: (Bpm -> Sig2 -> Sig2) -> Sam -> Sam
+bindBpm :: (Bpm -> Sig2 -> SE Sig2) -> Sam -> Sam
+~~~
+
+And many more
+----------------------------------
+
+There some other functions. We can find them all in the docs.
+Happy sampling!
