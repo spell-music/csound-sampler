@@ -418,5 +418,5 @@ bindBpm :: (Bpm -> Sig2 -> SE Sig2) -> Sam -> Sam
 And many more
 ----------------------------------
 
-There some other functions. We can find them all in the docs.
+There are many other functions. We can find them all in the docs.
 Happy sampling!
