@@ -18,6 +18,11 @@ The library is available on Hackage. So we can install it with cabal-install:
 > cabal install csound-sampler
 ~~~
 
+Also we need to install the [Csound](http://www.csounds.com) compiler. It's software synth. It's going
+to be our audio engine. When it's properly installed it should be possible to run the csound
+at the command line. Open up your terminal and type in `csound`. On windows sometimes csound
+complains on missing `python27.dll`. If it has happened with you download the dll from the web
+and drop it in the folder `C:\Windows\system32`.
 
 Let's review the main functions of the library.
 
@@ -42,6 +47,19 @@ bpm = 120 * 4
 
 main = dac $ runSam bpm audio
 ~~~
+
+Let's load the module in the ghci and invoke the main function.
+
+~~~
+ghci Main
+> main
+... and the Sam sings ...
+~~~
+
+Press `Ctrl+C` to stop the program. Note that it's the best way to work
+with csound libs. We can create module with common functions and imports then 
+we load it in the ghci and we can start messing around with samples right in the 
+interpreter!
 
 We load the lossless audio files with function `wav`. 
 If our audio file is mono we should use the function `wav1`.
