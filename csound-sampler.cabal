@@ -28,5 +28,7 @@ library
   build-depends:       base >= 4, base < 5, transformers >= 0.3, csound-expression >= 4.1.0
   exposed-modules:     
     Csound.Sam
+    Csound.Sam.Core
     Csound.Sam.Chord
+
 
