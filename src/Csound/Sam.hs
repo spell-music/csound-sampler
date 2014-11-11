@@ -21,7 +21,10 @@ module Csound.Sam (
 	arpUp, arpDown, arpOneOf, arpFreqOf,
 	arpUp1, arpDown1, arpOneOf1, arpFreqOf1,
     -- * Misc patterns
-    wall, forAirports, genForAirports
+    wall, forAirports, genForAirports,
+
+    -- UIs
+    module Csound.Sam.Ui
 ) where
 
 import Control.Monad.Trans.Class
@@ -30,36 +33,7 @@ import Control.Monad.Trans.Reader
 
 import Csound.Base
 import Csound.Sam.Core
-
--- | The main type. A stereo sample.
-type Sam = Sample Sig2
-
-instance RenderCsd Sam where
-    renderCsdBy opt sample = renderCsdBy opt (runSam (120 * 4) sample)
-
--- | Hides the effects inside sample.
-liftSam :: Sample (SE a) -> Sample a
-liftSam (Sam ra) = Sam $ do
-	a <- ra
-	lift $ fmap (\x -> a{ samSig = x}) $ samSig a
-
--- | Transforms the sample with BPM.
-mapBpm :: (Bpm -> Sig2 -> Sig2) -> Sam -> Sam
-mapBpm f (Sam ra) = Sam $ do
-	bpm <- ask
-	a <- ra
-	return $ a { samSig = f bpm $ samSig a }
-
--- | Lifts bind on stereo signals to samples.
-bindSam :: (Sig2 -> SE Sig2) -> Sam -> Sam
-bindSam f = liftSam . fmap f
-
--- | Lifts bind on stereo signals to samples with BPM.
-bindBpm :: (Bpm -> Sig2 -> SE Sig2) -> Sam -> Sam
-bindBpm f (Sam ra) = Sam $ do
-	bpm <- ask
-	a <- ra
-	lift $ fmap (\x -> a{ samSig = x}) $ f bpm $ samSig a
+import Csound.Sam.Ui
 
 -- | Constructs sample from mono signal
 infSig1 :: Sig -> Sam
@@ -197,9 +171,6 @@ toSec bpm a = a * 60 / bpm
 
 toSecSig :: Bpm -> Sig -> Sig
 toSecSig bpm a = a * 60 / sig bpm
-
-runSam :: Bpm -> Sam -> SE Sig2
-runSam bpm x = fmap samSig $ runReaderT (unSam x) bpm
 
 addDur :: D -> Dur -> Dur
 addDur d x = case x of

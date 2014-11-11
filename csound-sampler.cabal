@@ -29,6 +29,7 @@ library
   exposed-modules:     
     Csound.Sam
     Csound.Sam.Core
+    Csound.Sam.Ui
     Csound.Sam.Chord
 
 
