@@ -5,7 +5,7 @@ module Csound.Sam.Ui(
 	sim, hsim, simWith, hsimWith,
 	tog, htog,
 	live, liveEf,	
-	mixSam
+	mixSam, uiSam, addGain
 ) where
 
 import Data.List(transpose)
@@ -246,3 +246,21 @@ liveEf numBeats names sams masterEff effs = source $ do
 mixSam :: String -> Bpm -> Sam -> (String, SE Sig2)
 mixSam name bpm sam = (name, runSam bpm sam)
 
+-- | Creates fx-unit from sampler widget.
+--
+-- > uisam name isOn bpm samWidget
+uiSam :: String -> Bool -> D -> Source Sam -> Source FxFun
+uiSam name onOff bpm sam = uiSig name onOff (joinSource $ mapSource (runSam bpm) sam)
+	where 
+		joinSource :: Source (SE Sig2) -> Source Sig2
+		joinSource a = source $ do
+			(g, mres) <- a
+			res <- mres
+			return (g, res)
+
+-- | Adds gain slider on top of the widget. 
+addGain :: SigSpace a => Source a -> Source a
+addGain x = source $ do
+	(g, asig) <- x
+	(gainGui, gain) <- slider "gain" (linSpan 0 1) 0.5
+	return (ver [sca 0.15 gainGui, g], mul gain asig)
