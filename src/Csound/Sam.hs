@@ -5,7 +5,7 @@ module Csound.Sam (
 	-- * Lifters
 	mapBpm, bindSam, bindBpm, liftSam,
 	-- * Constructors
-	sig1, sig2, infSig1, infSig2, fromSig1, fromSig2, rest,
+	sig1, sig2, infSig1, infSig2, fromSig1, fromSig2, rest, ToSam(..), limSam,
 	-- ** Stereo
 	wav, wavr, seg, segr, rndWav, rndWavr, rndSeg, rndSegr, ramWav,
 	-- ** Mono
@@ -13,15 +13,19 @@ module Csound.Sam (
 	-- * Envelopes
 	linEnv, expEnv, hatEnv, decEnv, riseEnv, edecEnv, eriseEnv,
 	-- * Arrange
-	del, str, wide, flow, pick, pickBy, lim, atPan, atPch, atCps,	
+	del, str, wide, flow, pick, pickBy, lim, 
+	atPan, atPch, atCps, atPanRnd, atVolRnd, atVolGauss,	
 	-- * Loops
-	loop, rep1, rep, pat1, pat,	
+	loop, rep1, rep, pat1, pat, pat',	
 	-- * Arpeggio
     Chord,
 	arpUp, arpDown, arpOneOf, arpFreqOf,
 	arpUp1, arpDown1, arpOneOf1, arpFreqOf1,
     -- * Misc patterns
-    wall, forAirports, genForAirports,
+    wall, forAirports, genForAirports, arpy,
+
+    -- * Utils
+    metroS, toSec,
 
     -- UIs
     module Csound.Sam.Ui
@@ -349,12 +353,26 @@ pat1 = pat . return
 -- | Plays the sample at the given pattern of periods (in BPMs). The samples don't overlap.
 rep :: [D] -> Sam -> Sam 
 rep dts = genLoop $ \bpm d asig -> trigs (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
-	where notes bpm _ = zipWith (\t dt-> (toSec bpm t, toSec bpm dt, unit)) (patDurs dts)	dts	 
+	where notes bpm _ = zipWith (\t dt-> (toSec bpm t, toSec bpm dt, unit)) (patDurs dts) dts	 
 		
 -- | Plays the sample at the given pattern of periods (in BPMs). The overlapped samples are mixed together.
 pat :: [D] -> Sam -> Sam 
 pat dts = genLoop $ \bpm d asig -> trigs (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
 	where notes bpm d = fmap (\t -> (toSec bpm t, d, unit)) $ patDurs dts		
+
+-- | Plays the sample at the given pattern of volumes and periods (in BPMs). The overlapped samples are mixed together.
+--
+-- > pat' volumes periods
+pat' :: [D] -> [D] -> Sam -> Sam 
+pat' vols dts = genLoop $ \bpm d asig -> trigs (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
+	where 
+		notes bpm d = zipWith (\v t -> (toSec bpm t, d, v)) vols' $ patDurs dts'		
+		instr asig v = return $ mul (sig v) asig
+		(vols', dts') = unzip $ lcmList vols dts
+
+lcmList :: [a] -> [b] -> [(a, b)]
+lcmList as bs = take n $ zip (cycle as) (cycle bs)
+	where n = lcm (length as) (length bs)
 
 -- | Constructs the wall of sound from the initial segment of the sample.
 -- The segment length is given in BPMs.
@@ -444,3 +462,59 @@ forAirports xs sample = mean $ flip fmap xs $
 genForAirports :: [(D, D, Sam)] -> Sam
 genForAirports xs = mean $ fmap (\(delTime, loopTime, sample) -> del delTime $ pat [loopTime] sample) xs
 
+
+
+arp1 :: (SigSpace a, Sigs a) => (D -> SE a) -> D -> D -> Int -> [D] -> a
+arp1 instr bpm dt n ch = sched (\(amp, cps) -> fmap (mul (sig amp)) $ instr cps) $ 
+	withDur (toSec bpm dt) $ cycleE (lcmList (1 : replicate (n - 1) 0.7) ch) $ metroS bpm (sig dt)
+
+-- | The arpeggiator for the sequence of chords. 
+--
+-- > arpy instrument chordPeriod speedOfTheNote accentNumber chords 
+--
+-- The first argument is an instrument that takes in a frequency of
+-- the note in Hz. The second argument is the period of
+-- chord change (in beats). The next argument is the speed 
+-- of the single note (in beats). The integer argument
+-- is number of notes in the group. Every n'th note is louder.
+-- The last argument is the sequence of chords. The chord is
+-- the list of frequencies.
+arpy :: (D -> SE Sig2) -> D -> D -> Int -> [[D]] -> Sam
+arpy instr chordPeriod speed accentNum chords = Sam $ do
+	bpm <- ask
+	res <- unSam $ loop $ flow $ map (linEnv 0.05 0.05 . fromSig2 chordPeriod . arp1 instr bpm speed accentNum) chords
+	return $ S (samSig res) InfDur
+
+-- | Applies random panning to every sample playback.
+atPanRnd :: Sam -> Sam
+atPanRnd = bindSam rndPan2
+
+-- | Applies random amplitude scaling with gauss distribution with given radius (centered at 1).
+atVolGauss :: D -> Sam -> Sam
+atVolGauss k = bindSam (gaussVol k)
+
+-- | Applies random amplitude scaling to every sample playback.
+atVolRnd :: (D, D) -> Sam -> Sam
+atVolRnd k = bindSam (rndVol k)
+
+class ToSam a where
+	toSam :: a -> Sam
+
+limSam :: ToSam a => D -> a -> Sam
+limSam dt = lim dt . toSam
+
+instance ToSam Sig where
+	toSam x = Sam $ return $ S (x, x) InfDur
+
+instance ToSam Sig2 where
+	toSam x = Sam $ return $ S x InfDur
+
+instance ToSam (SE Sig) where
+	toSam x = Sam $ do
+		y <- lift x
+		return $ S (y, y) InfDur
+
+instance ToSam (SE Sig2) where
+	toSam x = Sam $ do
+		y <- lift x
+		return $ S y InfDur
