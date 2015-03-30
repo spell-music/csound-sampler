@@ -27,8 +27,11 @@ module Csound.Sam (
     -- * Utils
     metroS, toSec,
 
-    -- UIs
-    module Csound.Sam.Ui
+    -- * UIs
+    module Csound.Sam.Ui,
+
+    -- * Triggering samples
+    module Csound.Sam.Trig
 ) where
 
 import Control.Monad.Trans.Class
@@ -38,6 +41,7 @@ import Control.Monad.Trans.Reader
 import Csound.Base
 import Csound.Sam.Core
 import Csound.Sam.Ui
+import Csound.Sam.Trig
 
 -- | Constructs sample from mono signal
 infSig1 :: Sig -> Sam

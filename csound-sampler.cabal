@@ -31,5 +31,6 @@ library
     Csound.Sam.Core
     Csound.Sam.Ui
     Csound.Sam.Chord
+    Csound.Sam.Trig
 
 
