@@ -1,12 +1,12 @@
 module Csound.Sam.Trig (
 	-- * Char sampler
-	samCharTrig, samCharTap, samCharPush, samCharGroup, samCharCycle,
+	samCharTrig, samCharTap, samCharPush, samCharToggle, samCharGroup, samCharCycle,
 
 	-- * Midi sampler
-	samMidiTrig, samMidiTap, samMidiPush, samMidiGroup,
+	samMidiTrig, samMidiTap, samMidiPush, samMidiToggle, samMidiGroup,
 
 	-- ** Generic functions
-	samMidiTrigBy, samMidiTapBy, samMidiPushBy, samMidiGroupBy,
+	samMidiTrigBy, samMidiTapBy, samMidiPushBy, samMidiToggleBy, samMidiGroupBy,
 ) where
 
 import Data.Foldable(Foldable(foldMap))
