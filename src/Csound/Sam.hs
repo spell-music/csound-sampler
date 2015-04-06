@@ -10,6 +10,11 @@ module Csound.Sam (
 	wav, wavr, seg, segr, rndWav, rndWavr, rndSeg, rndSegr, ramWav,
 	-- ** Mono
 	wav1, wavr1, seg1, segr1, rndWav1, rndWavr1, rndSeg1, rndSegr1, ramWav1,	
+	-- * Reading from RAM
+	-- ** Stereo
+	ramLoop, ramRead, segLoop, segRead, relLoop, relRead,
+	-- ** Mono	
+	ramLoop1, ramRead1, segLoop1, segRead1, relLoop1, relRead1,
 	-- * Envelopes
 	linEnv, expEnv, hatEnv, decEnv, riseEnv, edecEnv, eriseEnv,
 	-- * Arrange
@@ -522,3 +527,56 @@ instance ToSam (SE Sig2) where
 	toSam x = Sam $ do
 		y <- lift x
 		return $ S y InfDur
+
+---------------------------------------------------------------
+--- reading from RAM
+
+
+-- | It's the same as loopRam but wrapped in Sam (see "Csound.Air.Wav").
+ramLoop :: TempoSig -> PitchSig -> String -> Sam
+ramLoop tempo pitch file = toSam $ loopRam tempo pitch file
+
+-- | It's the same as readRam but wrapped in Sam (see "Csound.Air.Wav").
+ramRead :: TempoSig -> PitchSig -> String -> Sam
+ramRead tempo pitch file = sig2 (lengthSnd file / ir tempo) $ readRam tempo pitch file
+
+-- | It's the same as loopSeg but wrapped in Sam (see "Csound.Air.Wav").
+segLoop :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segLoop ds tempo pitch file = toSam $ loopSeg ds tempo pitch file
+
+-- | It's the same as readSeg but wrapped in Sam (see "Csound.Air.Wav").
+segRead :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segRead ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readSeg ds tempo pitch file
+
+-- | It's the same as loopRel but wrapped in Sam (see "Csound.Air.Wav").
+relLoop :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relLoop ds tempo pitch file = toSam $ loopRel ds tempo pitch file
+
+-- | It's the same as readRel but wrapped in Sam (see "Csound.Air.Wav").
+relRead :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relRead ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readRel ds tempo pitch file
+
+-- | It's the same as loopRam1 but wrapped in Sam (see "Csound.Air.Wav").
+ramLoop1 :: TempoSig -> PitchSig -> String -> Sam
+ramLoop1 tempo pitch file = toSam $ loopRam1 tempo pitch file
+
+-- | It's the same as readRam1 but wrapped in Sam (see "Csound.Air.Wav").
+ramRead1 :: TempoSig -> PitchSig -> String -> Sam
+ramRead1 tempo pitch file = sig1 (lengthSnd file / ir tempo) $ readRam1 tempo pitch file
+
+-- | It's the same as loopSeg1 but wrapped in Sam (see "Csound.Air.Wav").
+segLoop1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segLoop1 ds tempo pitch file = toSam $ loopSeg1 ds tempo pitch file
+
+-- | It's the same as readSeg1 but wrapped in Sam (see "Csound.Air.Wav").
+segRead1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segRead1 ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readSeg1 ds tempo pitch file
+
+-- | It's the same as loopRel1 but wrapped in Sam (see "Csound.Air.Wav").
+relLoop1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relLoop1 ds tempo pitch file = toSam $ loopRel1 ds tempo pitch file
+
+-- | It's the same as readRel1 but wrapped in Sam (see "Csound.Air.Wav").
+relRead1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relRead1 ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readRel1 ds tempo pitch file
+
