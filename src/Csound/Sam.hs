@@ -533,50 +533,49 @@ instance ToSam (SE Sig2) where
 
 
 -- | It's the same as loopRam but wrapped in Sam (see "Csound.Air.Wav").
-ramLoop :: TempoSig -> PitchSig -> String -> Sam
-ramLoop tempo pitch file = toSam $ loopRam tempo pitch file
+ramLoop :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
+ramLoop winSize tempo pitch file = toSam $ loopRam winSize tempo pitch file
 
 -- | It's the same as readRam but wrapped in Sam (see "Csound.Air.Wav").
-ramRead :: TempoSig -> PitchSig -> String -> Sam
-ramRead tempo pitch file = sig2 (lengthSnd file / ir tempo) $ readRam tempo pitch file
+ramRead :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
+ramRead winSize tempo pitch file = sig2 (lengthSnd file / ir tempo) $ readRam winSize tempo pitch file
 
 -- | It's the same as loopSeg but wrapped in Sam (see "Csound.Air.Wav").
-segLoop :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-segLoop ds tempo pitch file = toSam $ loopSeg ds tempo pitch file
+segLoop :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segLoop winSize ds tempo pitch file = toSam $ loopSeg winSize ds tempo pitch file
 
 -- | It's the same as readSeg but wrapped in Sam (see "Csound.Air.Wav").
-segRead :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-segRead ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readSeg ds tempo pitch file
+segRead :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segRead winSize ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readSeg winSize ds tempo pitch file
 
 -- | It's the same as loopRel but wrapped in Sam (see "Csound.Air.Wav").
-relLoop :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-relLoop ds tempo pitch file = toSam $ loopRel ds tempo pitch file
+relLoop :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relLoop winSize ds tempo pitch file = toSam $ loopRel winSize ds tempo pitch file
 
 -- | It's the same as readRel but wrapped in Sam (see "Csound.Air.Wav").
-relRead :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-relRead ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readRel ds tempo pitch file
+relRead :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relRead winSize ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readRel winSize ds tempo pitch file
 
 -- | It's the same as loopRam1 but wrapped in Sam (see "Csound.Air.Wav").
-ramLoop1 :: TempoSig -> PitchSig -> String -> Sam
-ramLoop1 tempo pitch file = toSam $ loopRam1 tempo pitch file
+ramLoop1 :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
+ramLoop1 winSize tempo pitch file = toSam $ loopRam1 winSize tempo pitch file
 
 -- | It's the same as readRam1 but wrapped in Sam (see "Csound.Air.Wav").
-ramRead1 :: TempoSig -> PitchSig -> String -> Sam
-ramRead1 tempo pitch file = sig1 (lengthSnd file / ir tempo) $ readRam1 tempo pitch file
+ramRead1 :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
+ramRead1 winSize tempo pitch file = sig1 (lengthSnd file / ir tempo) $ readRam1 winSize tempo pitch file
 
 -- | It's the same as loopSeg1 but wrapped in Sam (see "Csound.Air.Wav").
-segLoop1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-segLoop1 ds tempo pitch file = toSam $ loopSeg1 ds tempo pitch file
+segLoop1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segLoop1 winSize ds tempo pitch file = toSam $ loopSeg1 winSize ds tempo pitch file
 
 -- | It's the same as readSeg1 but wrapped in Sam (see "Csound.Air.Wav").
-segRead1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-segRead1 ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readSeg1 ds tempo pitch file
+segRead1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+segRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readSeg1 winSize ds tempo pitch file
 
 -- | It's the same as loopRel1 but wrapped in Sam (see "Csound.Air.Wav").
-relLoop1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-relLoop1 ds tempo pitch file = toSam $ loopRel1 ds tempo pitch file
+relLoop1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relLoop1 winSize ds tempo pitch file = toSam $ loopRel1 winSize ds tempo pitch file
 
 -- | It's the same as readRel1 but wrapped in Sam (see "Csound.Air.Wav").
-relRead1 :: (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-relRead1 ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readRel1 ds tempo pitch file
-
+relRead1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
+relRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readRel1 winSize ds tempo pitch file
