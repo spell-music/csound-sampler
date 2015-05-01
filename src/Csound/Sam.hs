@@ -1,11 +1,11 @@
 -- | The sampler
-{-# Language DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
+{-# Language TypeFamilies, DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
 module Csound.Sam (
 	Sample, Sam, Bpm, runSam, 
 	-- * Lifters
 	mapBpm, bindSam, bindBpm, liftSam,
 	-- * Constructors
-	sig1, sig2, infSig1, infSig2, fromSig1, fromSig2, rest, ToSam(..), limSam,
+	sig1, sig2, infSig1, infSig2, fromSig1, fromSig2, ToSam(..), limSam,
 	-- ** Stereo
 	wav, wavr, seg, segr, rndWav, rndWavr, rndSeg, rndSegr, ramWav,
 	-- ** Mono
@@ -18,10 +18,10 @@ module Csound.Sam (
 	-- * Envelopes
 	linEnv, expEnv, hatEnv, decEnv, riseEnv, edecEnv, eriseEnv,
 	-- * Arrange
-	del, str, wide, flow, pick, pickBy, lim, 
+	wide, flow, pick, pickBy, 
 	atPan, atPch, atCps, atPanRnd, atVolRnd, atVolGauss,	
 	-- * Loops
-	loop, rep1, rep, pat1, pat, pat',	
+	rep1, rep, pat1, pat, pat',	
 	-- * Arpeggio
     Chord,
 	arpUp, arpDown, arpOneOf, arpFreqOf,
@@ -48,6 +48,35 @@ import Csound.Sam.Core
 import Csound.Sam.Ui
 import Csound.Sam.Trig
 
+type instance DurOf Sam = D
+
+instance Compose Sam where
+	mel = flow
+	(=:=) = (+)
+
+instance Delay Sam where
+	del dt = tfmS phi
+		where phi bpm x = x { samSig = asig, samDur = dur }
+				where 
+					absDt = toSec bpm dt
+					asig  = delaySnd absDt $ samSig x
+					dur   = addDur absDt $ samDur x
+
+instance Stretch Sam where
+	str k (Sam a) = Sam $ withReaderT ( * k) a
+
+instance Limit Sam where
+	lim d = tfmS $ \bpm x -> 
+		let absD = toSec bpm d 
+		in  x { samSig = takeSnd absD $ samSig x
+			  , samDur = Dur absD }
+
+instance Loop Sam where
+	loop = genLoop $ \_ d asig -> repeatSnd d asig
+
+instance Rest Sam where
+	rest dt = Sam $ reader $ \bpm -> S 0 (Dur $ toSec bpm dt)
+
 -- | Constructs sample from mono signal
 infSig1 :: Sig -> Sam
 infSig1 x = pure (x, x)
@@ -71,10 +100,6 @@ fromSig1 dt = lim dt . infSig1
 -- | Constructs sample from limited stereo signal (duration is in BPMs)
 fromSig2 :: D -> Sig2 -> Sam
 fromSig2 dt = lim dt . infSig2
-
--- | Constructs silence. The first argument is length in BPMs.
-rest :: D -> Sam
-rest dt = Sam $ reader $ \bpm -> S 0 (Dur $ toSec bpm dt)
 
 -- | Constructs sample from wav or aiff files.
 wav :: String -> Sam
@@ -214,20 +239,6 @@ tfmS f ra = Sam $ do
 setInfDur :: Sam -> Sam
 setInfDur = Sam . fmap (\a -> a { samDur = InfDur }) . unSam
 
-
--- | Delays a sample by the given amount of BPMs.
-del :: D -> Sam -> Sam
-del dt = tfmS phi
-	where phi bpm x = x { samSig = asig, samDur = dur }
-			where 
-				absDt = toSec bpm dt
-				asig  = delaySnd absDt $ samSig x
-				dur   = addDur absDt $ samDur x
-
--- | Stretches the BPM measure.
-str :: D -> Sam -> Sam
-str k (Sam a) = Sam $ withReaderT ( * k) a
-
 -- | Makes the sampler broader. It's reciprocal of str
 --
 -- > wide k = str (1 / k)
@@ -258,7 +269,7 @@ genPick pickFun dt as = Sam $ do
 	xs <- sequence $ fmap unSam as
 	let ds = fmap (getDur . samDur)  xs
 	let sigs = fmap samSig xs
-	return $ S (sched (\n -> return $ atTuple sigs $ sig n) $ pickFun (zip ds (fmap int [0..])) $ metroS bpm dt) InfDur 
+	return $ S (sched (\n -> return $ atTuple sigs $ sig n) $ fmap (\(dt, a) -> str dt $ temp a) $ pickFun (zip ds (fmap int [0..])) $ metroS bpm dt) InfDur 
 	where getDur x = case x of
 			InfDur -> -1
 			Dur d  -> d
@@ -272,13 +283,6 @@ pick = genPick oneOf
 -- The sum of all frequencies should be equal to 1.
 pickBy :: Sig -> [(D, Sam)] -> Sam
 pickBy dt as = genPick (\ds -> freqOf $ zip (fmap fst as) ds) dt (fmap snd as)
-
--- | Limits the length of the sample. The length is expressed in BPMs.
-lim :: D -> Sam -> Sam
-lim d = tfmS $ \bpm x -> 
-	let absD = toSec bpm d 
-	in  x { samSig = takeSnd absD $ samSig x
-		  , samDur = Dur absD }
 
 type EnvFun = (Dur -> D -> D -> Sig)
 
@@ -347,9 +351,6 @@ genLoop g = setInfDur . tfmS f
 			Dur d  -> g bpm d (samSig a)
 		}
 
--- | Plays sample in the loop.
-loop :: Sam -> Sam
-loop = genLoop $ \_ d asig -> repeatSnd d asig
 
 -- | Plays the sample at the given period (in BPMs). The samples don't overlap.
 rep1 :: D -> Sam -> Sam
@@ -361,21 +362,21 @@ pat1 = pat . return
 
 -- | Plays the sample at the given pattern of periods (in BPMs). The samples don't overlap.
 rep :: [D] -> Sam -> Sam 
-rep dts = genLoop $ \bpm d asig -> trigs (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
-	where notes bpm _ = zipWith (\t dt-> (toSec bpm t, toSec bpm dt, unit)) (patDurs dts) dts	 
+rep dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
+	where notes bpm _ = har $ zipWith (\t dt-> singleEvent (toSec bpm t) (toSec bpm dt) unit) (patDurs dts) dts	 
 		
 -- | Plays the sample at the given pattern of periods (in BPMs). The overlapped samples are mixed together.
 pat :: [D] -> Sam -> Sam 
-pat dts = genLoop $ \bpm d asig -> trigs (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
-	where notes bpm d = fmap (\t -> (toSec bpm t, d, unit)) $ patDurs dts		
+pat dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
+	where notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts		
 
 -- | Plays the sample at the given pattern of volumes and periods (in BPMs). The overlapped samples are mixed together.
 --
 -- > pat' volumes periods
 pat' :: [D] -> [D] -> Sam -> Sam 
-pat' vols dts = genLoop $ \bpm d asig -> trigs (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
+pat' vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
 	where 
-		notes bpm d = zipWith (\v t -> (toSec bpm t, d, v)) vols' $ patDurs dts'		
+		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'		
 		instr asig v = return $ mul (sig v) asig
 		(vols', dts') = unzip $ lcmList vols dts
 
@@ -427,8 +428,8 @@ arpFreqOf1 :: [D] -> Chord -> Sig -> Sam -> Sam
 arpFreqOf1 freqs ch = genArp1 (freqOf (zip freqs ch))
 
 genArp :: Arp1Fun -> [D] -> Sam -> Sam
-genArp arpFun dts = genLoop $ \bpm d asig -> trigs (arpInstr asig) $ fmap (notes bpm d) $ arpFun $ metroS bpm (sig $ sum dts)
-	where notes bpm d pchScale = fmap (\t -> (toSec bpm t, d, pchScale)) $ patDurs dts		
+genArp arpFun dts = genLoop $ \bpm d asig -> sched (arpInstr asig) $ fmap (notes bpm d) $ arpFun $ metroS bpm (sig $ sum dts)
+	where notes bpm d pchScale = har $ fmap (\t -> singleEvent (toSec bpm t) d pchScale) $ patDurs dts		
 
 -- | Plays ascending arpeggio of samples.
 arpUp :: Chord -> [D] -> Sam -> Sam
