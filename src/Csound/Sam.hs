@@ -50,9 +50,13 @@ import Csound.Sam.Trig
 
 type instance DurOf Sam = D
 
-instance Compose Sam where
+instance Melody Sam where
 	mel = flow
+
+instance Harmony Sam where
 	(=:=) = (+)
+
+instance Compose Sam where
 
 instance Delay Sam where
 	del dt = tfmS phi
