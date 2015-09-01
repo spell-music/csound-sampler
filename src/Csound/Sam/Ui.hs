@@ -89,7 +89,7 @@ genSimInits gcat numBeats as = source $ do
 	curRefs <- mapM (const $ newGlobalSERef (0 :: Sig)) ids
 	currents <- mapM readSERef curRefs
 	zipWithM_ (\w val -> w val) writes currents
-	let mkReaders bpm = zipWithM_ (\r ref -> runEvt (syncBpm (bpm / int numBeats) $ snaps r) $ \x -> do
+	let mkReaders bpm = zipWithM_ (\r ref -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
 			writeSERef ref (sig x)
 		) reads curRefs
 	let res = bindBpm (\bpm x -> mkReaders bpm >> return x) $ groupToggles mean sams $ fmap snaps currents
@@ -135,7 +135,7 @@ genTogWithRef gcat numBeats as = source $ do
 	curRef <- newGlobalSERef (0 :: Sig)
 	current <- readSERef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
-	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (bpm / int numBeats) $ snaps r) $ \x -> do
+	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
 			writeSERef curRef 0			
 		when1 (sig x ==* 1) $ do
@@ -193,7 +193,7 @@ mkLiveSceneRow numBeats gMaster ids refs = do
 	curRef <- newGlobalSERef (0 :: Sig)
 	current <- readSERef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
-	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (bpm / int numBeats) $ snaps r) $ \x -> do
+	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
 			writeSERef curRef 0			
 			mapM_ (flip writeSERef 0) refs

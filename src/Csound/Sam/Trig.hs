@@ -21,16 +21,22 @@ import Csound.Sam.Core(Sam, bindSam)
 
 -- | Triggers the sample with any char from the first string
 -- and stops the sample with any char from the second string.
-samCharTrig :: String -> String -> Sam -> Sam
-samCharTrig starts stops = fmap (charTrig starts stops) 
+samCharTrig :: Maybe Sam -> String -> String -> Sam -> Sam
+samCharTrig initVal starts stops x = case initVal of
+	Nothing -> fmap (charTrig Nothing starts stops) x
+	Just v0 -> liftA2 (\v sigs -> charTrig (Just v) starts stops sigs) v0 x
 
 -- | Plays a sample while the key is pressed.
-samCharPush :: Char -> Sam -> Sam
-samCharPush ch = fmap (charPush ch)
+samCharPush :: Maybe Sam -> Char -> Sam -> Sam
+samCharPush initVal ch x = case initVal of
+	Nothing -> fmap (charPush Nothing ch) x
+	Just v0 -> liftA2 (\v sigs -> charPush (Just v) ch sigs) v0 x
 
 -- | Toggles the sample when the key is pressed.
-samCharToggle :: Char -> Sam -> Sam
-samCharToggle ch = fmap (charToggle ch)
+samCharToggle :: Maybe Sam -> Char -> Sam -> Sam
+samCharToggle initVal ch x = case initVal of
+	Nothing -> fmap (charToggle Nothing ch) x
+	Just v0 -> liftA2 (\v sigs -> charToggle (Just v) ch sigs) v0 x
 
 -- | Char trigger with fixed note limiting by length in second.
 -- It's useful optimization. It's good to use for drum notes and short sounds.
@@ -39,14 +45,18 @@ samCharTap stop starts = fmap (charTap stop starts)
 
 -- | Plays one of the sample from the list when corresponding char is pressed.
 -- The last string is for stopping the samples.
-samCharGroup :: [(Char, Sam)] -> String -> Sam
-samCharGroup as stop = fmap (\xs -> charGroup (zip starts xs) stop) $ sequenceA sams
+samCharGroup :: Maybe Sam -> [(Char, Sam)] -> String -> Sam
+samCharGroup initVal as stop = case initVal of
+	Nothing -> fmap (\xs -> charGroup Nothing (zip starts xs) stop) (sequenceA sams)
+	Just v0 -> liftA2 (\v xs -> charGroup (Just v) (zip starts xs) stop) v0 (sequenceA sams)
 	where (starts, sams) = unzip as
 
 -- | Plays samples in sequence when key is pressed. The last string is 
 -- for stopping the sequence.
-samCharCycle :: Char -> String -> [Sam] -> Sam
-samCharCycle start stop as = fmap (charCycle start stop) (sequenceA as)
+samCharCycle :: Maybe Sam -> Char -> String -> [Sam] -> Sam
+samCharCycle initVal start stop as = case initVal of
+	Nothing -> fmap (charCycle Nothing start stop) (sequenceA as)
+	Just v0 -> liftA2 (\v xs -> charCycle (Just v) start stop xs) v0 (sequenceA as)
 
 ------------------------------------------------------
 
