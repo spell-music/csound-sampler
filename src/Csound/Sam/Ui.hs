@@ -63,14 +63,14 @@ hfreeTog = genFreeTog hor
 genFreeTog :: ([Gui] -> Gui) -> [(String, Sam)] -> Source Sam
 genFreeTog gcat as = source $ do
 	(guis, writes, reads) <- fmap unzip3 $ mapM (flip setToggleSig False) names
-	curRef <- newGlobalSERef (0 :: Sig)
-	current <- readSERef curRef
+	curRef <- newGlobalRef (0 :: Sig)
+	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
 	zipWithM_ (\r i -> runEvt (snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
-			writeSERef curRef 0
+			writeRef curRef 0
 		when1 (sig x ==* 1) $ do
-			writeSERef curRef i		
+			writeRef curRef i		
 		) reads ids
 
 	let res = groupToggles sum sams $ fmap (snaps . (\i -> ifB (current ==* i) 1 0)) ids
@@ -86,11 +86,11 @@ genSim gcat numBeats as = genSimInits gcat numBeats $ fmap (\(a, b) -> (a, b, Fa
 genSimInits :: ([Gui] -> Gui) -> Int -> [(String, Sam, Bool)] -> Source Sam
 genSimInits gcat numBeats as = source $ do
 	(guis, writes, reads) <- fmap unzip3 $ zipWithM setToggleSig names initVals
-	curRefs <- mapM (const $ newGlobalSERef (0 :: Sig)) ids
-	currents <- mapM readSERef curRefs
+	curRefs <- mapM (const $ newGlobalRef (0 :: Sig)) ids
+	currents <- mapM readRef curRefs
 	zipWithM_ (\w val -> w val) writes currents
 	let mkReaders bpm = zipWithM_ (\r ref -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
-			writeSERef ref (sig x)
+			writeRef ref (sig x)
 		) reads curRefs
 	let res = bindBpm (\bpm x -> mkReaders bpm >> return x) $ groupToggles mean sams $ fmap snaps currents
 	return (gcat guis, res)
@@ -129,17 +129,17 @@ hsimWith = genSimInits hor
 genTog :: ([Gui] -> Gui) -> Int -> [(String, Sam)] -> Source Sam
 genTog gcat numBeats as = fmap (\(g, x) -> (g, fst x)) $ genTogWithRef gcat numBeats as
 
-genTogWithRef :: ([Gui] -> Gui) -> Int -> [(String, Sam)] -> Source (Sam, SERef Sig)
+genTogWithRef :: ([Gui] -> Gui) -> Int -> [(String, Sam)] -> Source (Sam, Ref Sig)
 genTogWithRef gcat numBeats as = source $ do
 	(guis, writes, reads) <- fmap unzip3 $ mapM (flip setToggleSig False) names
-	curRef <- newGlobalSERef (0 :: Sig)
-	current <- readSERef curRef
+	curRef <- newGlobalRef (0 :: Sig)
+	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
 	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
-			writeSERef curRef 0			
+			writeRef curRef 0			
 		when1 (sig x ==* 1) $ do
-			writeSERef curRef i					
+			writeRef curRef i					
 		) reads ids
 
 	let res = bindBpm (\bpm x -> mkReaders bpm >> return x) $ groupToggles sum sams $ fmap (snaps . (\i -> ifB (current ==* i) 1 0)) ids
@@ -184,22 +184,22 @@ live numBeats names sams = source $ do
 		ids = fmap (sig . int) [1 .. length (head rows)]
 		n = length names
 
-mkLiveRow :: Int -> (String, Gui) -> [Sam] -> Source (Sam, SERef Sig)
+mkLiveRow :: Int -> (String, Gui) -> [Sam] -> Source (Sam, Ref Sig)
 mkLiveRow numBeats (name, gVol) xs = genTogWithRef (\xs -> ver $ xs ++ [gVol]) numBeats (zip (name : repeat "") xs)
 
-mkLiveSceneRow :: Int -> Gui -> [Sig] -> [SERef Sig] -> SE (Gui, D -> SE ())
+mkLiveSceneRow :: Int -> Gui -> [Sig] -> [Ref Sig] -> SE (Gui, D -> SE ())
 mkLiveSceneRow numBeats gMaster ids refs = do			
 	(guis, writes, reads) <- fmap unzip3 $ mapM (flip setToggleSig False) names
-	curRef <- newGlobalSERef (0 :: Sig)
-	current <- readSERef curRef
+	curRef <- newGlobalRef (0 :: Sig)
+	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
 	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
-			writeSERef curRef 0			
-			mapM_ (flip writeSERef 0) refs
+			writeRef curRef 0			
+			mapM_ (flip writeRef 0) refs
 		when1 (sig x ==* 1) $ do
-			writeSERef curRef i	
-			mapM_ (flip writeSERef i) refs
+			writeRef curRef i	
+			mapM_ (flip writeRef i) refs
 		) reads ids
 
 	return (ver $ guis ++ [gMaster], mkReaders)
