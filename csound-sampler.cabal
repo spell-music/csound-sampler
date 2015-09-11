@@ -1,10 +1,10 @@
 name:                csound-sampler
-version:             0.0.6.2
+version:             0.0.6.3
 license:             BSD3
 license-file:        LICENSE
 author:              Anton Kholomiov
 maintainer:          <anton.kholomiov@gmail.com>
-Tested-With:         GHC==7.6
+Tested-With:         GHC==7.10
 stability:           Experimental
 category:            Music
 build-type:          Simple
@@ -25,7 +25,7 @@ Source-repository head
 library
   Ghc-Options:    -Wall
   Hs-Source-Dirs:      src/
-  build-depends:       base >= 4, base < 5, transformers >= 0.3, csound-expression >= 4.8
+  build-depends:       base >= 4, base < 5, transformers >= 0.3, csound-expression >= 4.8.3
   exposed-modules:     
     Csound.Sam
     Csound.Sam.Core
