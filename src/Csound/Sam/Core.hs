@@ -2,7 +2,7 @@
 {-# Language DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
 module Csound.Sam.Core (
 	Sam, runSam, Sample(..), S(..), Dur(..), Bpm,
-	liftSam, mapBpm, bindSam, bindBpm
+	liftSam, mapBpm, mapBpm2, bindSam, bindBpm, bindBpm2, withBpm
 ) where
 
 import Control.Applicative
@@ -16,6 +16,9 @@ type Sam = Sample Sig2
 
 instance RenderCsd Sam where
     renderCsdBy opt sample = renderCsdBy opt (runSam (120 * 4) sample)
+
+instance RenderCsd (Source Sam) where
+	renderCsdBy opt sample = renderCsdBy opt (lift1 (runSam (120 * 4)) sample)	
 
 runSam :: Bpm -> Sam -> SE Sig2
 runSam bpm x = fmap samSig $ runReaderT (unSam x) bpm
@@ -69,19 +72,31 @@ liftSam (Sam ra) = Sam $ do
 	lift $ fmap (\x -> a{ samSig = x}) $ samSig a
 
 -- | Transforms the sample with BPM.
-mapBpm :: (Bpm -> Sig2 -> Sig2) -> Sam -> Sam
-mapBpm f (Sam ra) = Sam $ do
-	bpm <- ask
-	a <- ra
-	return $ a { samSig = f bpm $ samSig a }
+mapBpm :: (Bpm -> a -> b) -> Sample a -> Sample b
+mapBpm f a = Sam $ do
+	bpm <- ask	
+	unSam $ fmap (f bpm) a
+
+-- | Transforms the sample with BPM.
+mapBpm2 :: (Bpm -> a -> b -> c) -> Sample a -> Sample b -> Sample c
+mapBpm2 f a b = Sam $ do
+	bpm <- ask	
+	unSam $ liftA2 (f bpm) a b	
 
 -- | Lifts bind on stereo signals to samples.
-bindSam :: (Sig2 -> SE Sig2) -> Sam -> Sam
+bindSam :: (a -> SE b) -> Sample a -> Sample b
 bindSam f = liftSam . fmap f
 
 -- | Lifts bind on stereo signals to samples with BPM.
-bindBpm :: (Bpm -> Sig2 -> SE Sig2) -> Sam -> Sam
-bindBpm f (Sam ra) = Sam $ do
+bindBpm :: (Bpm -> a -> SE b) -> Sample a -> Sample b
+bindBpm f a = liftSam $ mapBpm f a
+
+-- | Lifts bind on stereo signals to samples with BPM.
+bindBpm2 :: (Bpm -> a -> b -> SE c) -> Sample a -> Sample b -> Sample c
+bindBpm2 f a b = liftSam $ mapBpm2 f a b
+
+
+withBpm :: (Bpm -> Sample a) -> Sample a
+withBpm x = Sam $ do
 	bpm <- ask
-	a <- ra
-	lift $ fmap (\x -> a{ samSig = x}) $ f bpm $ samSig a
+	unSam $ x bpm

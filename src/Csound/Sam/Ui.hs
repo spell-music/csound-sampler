@@ -1,3 +1,4 @@
+{-# Language FlexibleContexts #-}
 -- | Graphical widgets for playing samples
 module Csound.Sam.Ui(
 	freeSim, hfreeSim, freeSimWith, hfreeSimWith,

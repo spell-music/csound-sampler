@@ -3,7 +3,7 @@
 module Csound.Sam (
 	Sample, Sam, Bpm, runSam, 
 	-- * Lifters
-	mapBpm, bindSam, bindBpm, liftSam,
+	mapBpm, bindSam, bindBpm, liftSam, mapBpm2, bindBpm2, withBpm,
 	-- * Constructors
 	sig1, sig2, infSig1, infSig2, fromSig1, fromSig2, ToSam(..), limSam,
 	-- ** Stereo
