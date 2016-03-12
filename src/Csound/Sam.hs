@@ -1,5 +1,5 @@
 -- | The sampler
-{-# Language TypeFamilies, DeriveFunctor, TypeSynonymInstances, FlexibleInstances #-}
+{-# Language TypeFamilies, DeriveFunctor, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses #-}
 module Csound.Sam (
 	Sample, Sam, Bpm, runSam, 
 	-- * Lifters
@@ -80,6 +80,48 @@ instance Loop Sam where
 
 instance Rest Sam where
 	rest dt = Sam $ reader $ \bpm -> S 0 (Dur $ toSec bpm dt)
+
+instance At Sig2 Sig2 Sam where
+	type AtOut Sig2 Sig2 Sam = Sam
+	at f x = fmap f x
+
+instance At Sig2 (SE Sig2) Sam where
+	type AtOut Sig2 (SE Sig2) Sam = Sam
+	at f x = bindSam f x
+
+instance At Sig (SE Sig) Sam where
+	type AtOut Sig (SE Sig) Sam = Sam
+	at f x = liftSam $ fmap (at f) x
+
+instance At Sig Sig2 Sam where
+	type AtOut Sig Sig2 Sam = Sam
+	at f x = at phi x
+		where 
+			phi (a, b) = 0.5 * (f a + f b)
+
+instance At Sig (SE Sig2) Sam where
+	type AtOut Sig (SE Sig2) Sam = Sam
+	at f x = at phi x
+		where 
+			phi (a, b) = do
+				a' <- f a 
+				b' <- f b
+				return $ 0.5 * (a' + b')
+
+instance MixAt Sig2 Sig2 Sam where
+	mixAt k f sam = at (\x -> cfd k x (f x)) sam
+
+instance MixAt Sig2 (SE Sig2) Sam where
+	mixAt k f sam = at (\x -> fmap (cfd k x) (f x)) sam
+
+instance MixAt Sig (SE Sig) Sam where
+	mixAt k f sam = at (\x -> fmap (cfd k x) (f x)) sam
+
+instance MixAt Sig Sig2 Sam where
+	mixAt k f sam = at (\x -> cfd k (x, x) (f x)) sam
+
+instance MixAt Sig (SE Sig2) Sam where
+	mixAt k f sam = at (\x -> fmap (cfd k (x, x)) (f x)) sam
 
 -- | Constructs sample from mono signal
 infSig1 :: Sig -> Sam
