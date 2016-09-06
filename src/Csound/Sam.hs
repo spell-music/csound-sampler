@@ -21,7 +21,7 @@ module Csound.Sam (
 	wide, flow, pick, pickBy, 
 	atPan, atPch, atCps, atPanRnd, atVolRnd, atVolGauss,	
 	-- * Loops
-	rep1, rep, pat1, pat, pat',	
+	rep1, rep, pat1, pat, pat',	rndPat, rndPat',
 	-- * Arpeggio
     Chord,
 	arpUp, arpDown, arpOneOf, arpFreqOf,
@@ -416,6 +416,13 @@ pat :: [D] -> Sam -> Sam
 pat dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
 	where notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts		
 
+-- | Plays the sample at the given pattern of periods (in BPMs) and sometimes skips the samples from playback. The overlapped samples are mixed together.
+-- The first argument is the probability of inclusion.
+rndPat :: D -> [D] -> Sam -> Sam 
+rndPat prob dts = genLoop $ \bpm d asig -> sched (const $ rndSkipInstr prob asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
+	where 
+		notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts	
+
 -- | Plays the sample at the given pattern of volumes and periods (in BPMs). The overlapped samples are mixed together.
 --
 -- > pat' volumes periods
@@ -425,6 +432,27 @@ pat' vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ note
 		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'		
 		instr asig v = return $ mul (sig v) asig
 		(vols', dts') = unzip $ lcmList vols dts
+
+rndSkipInstr prob asig = do
+	ref <- newRef 0	
+	p <- random 0 (1 :: D)
+	whenD1 (prob `lessThan` p) $ 
+		writeRef ref asig
+	whenD1 (prob `greaterThanEquals` p) $
+		writeRef ref 0
+	readRef ref	
+
+-- | Plays the sample at the given pattern of volumes and periods (in BPMs) and sometimes skips the samples from playback.  The overlapped samples are mixed together.
+-- The first argument is the probability of inclusion.
+--
+-- > rndPat' probability volumes periods
+rndPat' :: D -> [D] -> [D] -> Sam -> Sam 
+rndPat' prob vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
+	where 
+		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'		
+		instr asig v = mul (sig v) $ rndSkipInstr prob asig			
+		(vols', dts') = unzip $ lcmList vols dts
+
 
 lcmList :: [a] -> [b] -> [(a, b)]
 lcmList as bs = take n $ zip (cycle as) (cycle bs)
