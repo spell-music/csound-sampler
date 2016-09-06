@@ -436,9 +436,9 @@ pat' vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ note
 rndSkipInstr prob asig = do
 	ref <- newRef 0	
 	p <- random 0 (1 :: D)
-	whenD1 (prob `lessThan` p) $ 
+	whenD1 (p `lessThan` prob) $ 
 		writeRef ref asig
-	whenD1 (prob `greaterThanEquals` p) $
+	whenD1 (p `greaterThanEquals` prob) $
 		writeRef ref 0
 	readRef ref	
 
