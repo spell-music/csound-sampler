@@ -418,7 +418,7 @@ pat dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ n
 
 -- | Plays the sample at the given pattern of periods (in BPMs) and sometimes skips the samples from playback. The overlapped samples are mixed together.
 -- The first argument is the probability of inclusion.
-rndPat :: D -> [D] -> Sam -> Sam 
+rndPat :: Sig -> [D] -> Sam -> Sam 
 rndPat prob dts = genLoop $ \bpm d asig -> sched (const $ rndSkipInstr prob asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
 	where 
 		notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts	
@@ -433,7 +433,8 @@ pat' vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ note
 		instr asig v = return $ mul (sig v) asig
 		(vols', dts') = unzip $ lcmList vols dts
 
-rndSkipInstr prob asig = do
+rndSkipInstr probSig asig = do
+	let prob = ir probSig
 	ref <- newRef 0	
 	p <- random 0 (1 :: D)
 	whenD1 (p `lessThan` prob) $ 
@@ -446,7 +447,7 @@ rndSkipInstr prob asig = do
 -- The first argument is the probability of inclusion.
 --
 -- > rndPat' probability volumes periods
-rndPat' :: D -> [D] -> [D] -> Sam -> Sam 
+rndPat' :: Sig -> [D] -> [D] -> Sam -> Sam 
 rndPat' prob vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
 	where 
 		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'		
