@@ -15,6 +15,9 @@ module Csound.Sam (
 	ramLoop, ramRead, segLoop, segRead, relLoop, relRead,
 	-- ** Mono	
 	ramLoop1, ramRead1, segLoop1, segRead1, relLoop1, relRead1,
+
+    -- ** Tempo/pitch scaling based on temposcal
+    wavScale, wavScale1, drumScale, drumScale1, harmScale, harmScale1,
 	-- * Envelopes
 	linEnv, expEnv, hatEnv, decEnv, riseEnv, edecEnv, eriseEnv,
 	-- * Arrange
@@ -607,7 +610,6 @@ instance ToSam (SE Sig2) where
 ---------------------------------------------------------------
 --- reading from RAM
 
-
 -- | It's the same as loopRam but wrapped in Sam (see "Csound.Air.Wav").
 ramLoop :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
 ramLoop winSize tempo pitch file = toSam $ loopRam winSize tempo pitch file
@@ -655,3 +657,24 @@ relLoop1 winSize ds tempo pitch file = toSam $ loopRel1 winSize ds tempo pitch f
 -- | It's the same as readRel1 but wrapped in Sam (see "Csound.Air.Wav").
 relRead1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
 relRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readRel1 winSize ds tempo pitch file
+
+-----------------------
+-- temposcale
+
+wavScale :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
+wavScale winSize tempo pitch file = toSam $ scaleWav winSize tempo pitch file
+
+wavScale1 :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
+wavScale1 winSize tempo pitch file = toSam $ scaleWav1 winSize tempo pitch file
+
+drumScale :: TempoSig -> PitchSig -> String -> Sam
+drumScale tempo pitch file = toSam $ scaleDrum tempo pitch file
+
+drumScale1 :: TempoSig -> PitchSig -> String -> Sam
+drumScale1  tempo pitch file = toSam $ scaleDrum1 tempo pitch file
+
+harmScale :: TempoSig -> PitchSig -> String -> Sam
+harmScale tempo pitch file = toSam $ scaleHarm tempo pitch file
+
+harmScale1 :: TempoSig -> PitchSig -> String -> Sam
+harmScale1  tempo pitch file = toSam $ scaleHarm1 tempo pitch file
