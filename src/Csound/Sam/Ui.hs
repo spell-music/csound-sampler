@@ -219,7 +219,7 @@ defSlider tag = slider tag (linSpan 0 1) 0.5
 -- | It's just like the function @live@ but we can provide the list
 -- of effects for each column. The double value specifies the mix
 -- between dry and wet signals.
-liveEf :: Int -> [String] -> [Sam] -> (Double, FxFun) -> [(Double, FxFun)] -> Source Sam
+liveEf :: Int -> [String] -> [Sam] -> (Double, Fx2) -> [(Double, Fx2)] -> Source Sam
 liveEf numBeats names sams masterEff effs = source $ do
 	(gVols, vols) <- fmap unzip $  mapM  defSlider $ replicate n "vol"
 	(gEffs, effCtrls) <- fmap unzip $  
@@ -250,7 +250,7 @@ mixSam name bpm sam = (name, runSam bpm sam)
 -- | Creates fx-unit from sampler widget.
 --
 -- > uisam name isOn bpm samWidget
-uiSam :: String -> Bool -> D -> Source Sam -> Source FxFun
+uiSam :: String -> Bool -> D -> Source Sam -> Source Fx2
 uiSam name onOff bpm sam = uiSig name onOff (joinSource $ mapSource (runSam bpm) sam)
 	where 
 		joinSource :: Source (SE Sig2) -> Source Sig2
