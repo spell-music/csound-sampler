@@ -330,7 +330,7 @@ pick = genPick oneOf
 
 -- | Picks samples at random. We can specify a frequency of the occurernce.
 -- The sum of all frequencies should be equal to 1.
-pickBy :: Sig -> [(D, Sam)] -> Sam
+pickBy :: Sig -> [(Sig, Sam)] -> Sam
 pickBy dt as = genPick (\ds -> freqOf $ zip (fmap fst as) ds) dt (fmap snd as)
 
 type EnvFun = (Dur -> D -> D -> Sig)
@@ -502,7 +502,7 @@ arpOneOf1 = genArp1 . oneOf
 
 -- | Plays arpeggio of samles with random notes from the chord.
 -- We can assign the frequencies of the notes.
-arpFreqOf1 :: [D] -> Chord -> Sig -> Sam -> Sam
+arpFreqOf1 :: [Sig] -> Chord -> Sig -> Sam -> Sam
 arpFreqOf1 freqs ch = genArp1 (freqOf (zip freqs ch))
 
 genArp :: Arp1Fun -> [D] -> Sam -> Sam
@@ -523,7 +523,7 @@ arpOneOf = genArp . oneOf
 
 -- | Plays arpeggio of samles with random notes from the chord.
 -- We can assign the frequencies of the notes.
-arpFreqOf :: [D] -> Chord -> [D] -> Sam -> Sam
+arpFreqOf :: [Sig] -> Chord -> [D] -> Sam -> Sam
 arpFreqOf freqs ch = genArp (freqOf $ zip freqs ch)
 
 metroS :: Bpm -> Sig -> Evt Unit
