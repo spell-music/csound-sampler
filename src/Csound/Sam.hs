@@ -1,7 +1,7 @@
 -- | The sampler
 {-# Language TypeFamilies, DeriveFunctor, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses #-}
 module Csound.Sam (
-	Sample, Sam, Bpm, runSam, 
+	Sample, Sam, Bpm, runSam,
 	-- * Lifters
 	mapBpm, bindSam, bindBpm, liftSam, mapBpm2, bindBpm2, withBpm,
 	-- * Constructors
@@ -9,11 +9,11 @@ module Csound.Sam (
 	-- ** Stereo
 	wav, wavr, seg, segr, rndWav, rndWavr, rndSeg, rndSegr, ramWav,
 	-- ** Mono
-	wav1, wavr1, seg1, segr1, rndWav1, rndWavr1, rndSeg1, rndSegr1, ramWav1,	
+	wav1, wavr1, seg1, segr1, rndWav1, rndWavr1, rndSeg1, rndSegr1, ramWav1,
 	-- * Reading from RAM
 	-- ** Stereo
 	ramLoop, ramRead, segLoop, segRead, relLoop, relRead,
-	-- ** Mono	
+	-- ** Mono
 	ramLoop1, ramRead1, segLoop1, segRead1, relLoop1, relRead1,
 
     -- ** Tempo/pitch scaling based on temposcal
@@ -21,8 +21,8 @@ module Csound.Sam (
 	-- * Envelopes
 	linEnv, expEnv, hatEnv, decEnv, riseEnv, edecEnv, eriseEnv,
 	-- * Arrange
-	wide, flow, pick, pickBy, 
-	atPan, atPch, atCps, atPanRnd, atVolRnd, atVolGauss,	
+	wide, flow, pick, pickBy,
+	atPan, atPch, atCps, atPanRnd, atVolRnd, atVolGauss,
 	-- * Loops
 	rep1, rep, pat1, pat, pat',	rndPat, rndPat',
 	-- * Arpeggio
@@ -51,7 +51,7 @@ import Csound.Sam.Core
 import Csound.Sam.Ui
 import Csound.Sam.Trig
 
-type instance DurOf Sam = D
+type instance DurOf Sam = Sig
 
 instance Melody Sam where
 	mel = flow
@@ -64,7 +64,7 @@ instance Compose Sam where
 instance Delay Sam where
 	del dt = tfmS phi
 		where phi bpm x = x { samSig = asig, samDur = dur }
-				where 
+				where
 					absDt = toSec bpm dt
 					asig  = delaySnd absDt $ samSig x
 					dur   = addDur absDt $ samDur x
@@ -73,8 +73,8 @@ instance Stretch Sam where
 	str k (Sam a) = Sam $ withReaderT ( * k) a
 
 instance Limit Sam where
-	lim d = tfmS $ \bpm x -> 
-		let absD = toSec bpm d 
+	lim d = tfmS $ \bpm x ->
+		let absD = toSec bpm d
 		in  x { samSig = takeSnd absD $ samSig x
 			  , samDur = Dur absD }
 
@@ -99,15 +99,15 @@ instance At Sig (SE Sig) Sam where
 instance At Sig Sig2 Sam where
 	type AtOut Sig Sig2 Sam = Sam
 	at f x = at phi x
-		where 
+		where
 			phi (a, b) = 0.5 * (f a + f b)
 
 instance At Sig (SE Sig2) Sam where
 	type AtOut Sig (SE Sig2) Sam = Sam
 	at f x = at phi x
-		where 
+		where
 			phi (a, b) = do
-				a' <- f a 
+				a' <- f a
 				b' <- f b
 				return $ 0.5 * (a' + b')
 
@@ -135,40 +135,40 @@ infSig2 :: Sig2 -> Sam
 infSig2 = pure
 
 -- | Constructs sample from limited mono signal (duration is in seconds)
-sig1 :: D -> Sig -> Sam
+sig1 :: Sig -> Sig -> Sam
 sig1 dt a = Sam $ reader $ \_ -> S (a, a) (Dur dt)
 
 -- | Constructs sample from limited stereo signal (duration is in seconds)
-sig2 :: D -> Sig2 -> Sam
+sig2 :: Sig -> Sig2 -> Sam
 sig2 dt a = Sam $ reader $ \_ -> S a (Dur dt)
 
 -- | Constructs sample from limited mono signal (duration is in BPMs)
-fromSig1 :: D -> Sig -> Sam
+fromSig1 :: Sig -> Sig -> Sam
 fromSig1 dt = lim dt . infSig1
 
 -- | Constructs sample from limited stereo signal (duration is in BPMs)
-fromSig2 :: D -> Sig2 -> Sam
+fromSig2 :: Sig -> Sig2 -> Sam
 fromSig2 dt = lim dt . infSig2
 
 -- | Constructs sample from wav or aiff files.
 wav :: String -> Sam
-wav fileName = Sam $ return $ S (readSnd fileName) (Dur $ lengthSnd fileName)
+wav fileName = Sam $ return $ S (readSnd fileName) (Dur $ sig $ lengthSnd fileName)
 
 -- | Constructs sample from wav that is played in reverse.
 wavr :: String -> Sam
-wavr fileName = Sam $ return $ S (takeSnd len $ loopWav (-1) fileName) (Dur len)
+wavr fileName = Sam $ return $ S (takeSnd (sig len) $ loopWav (-1) fileName) (Dur $ sig len)
 	where len = lengthSnd fileName
 
 -- | Constructs sample from the segment of a wav file. The start and end times are measured in seconds.
 --
 -- > seg begin end fileName
 seg :: D -> D -> String -> Sam
-seg start end fileName = Sam $ return $ S (readSegWav start end 1 fileName) (Dur len)
+seg start end fileName = Sam $ return $ S (readSegWav start end 1 fileName) (Dur $ sig len)
 	where len = end - start
 
 --- | Constructs reversed sample from segment of an audio file.
 segr :: D -> D -> String -> Sam
-segr start end fileName = Sam $ return $ S (readSegWav start end (-1) fileName) (Dur len)
+segr start end fileName = Sam $ return $ S (readSegWav start end (-1) fileName) (Dur $ sig len)
 	where len = end - start
 
 -- | Picks segments from the wav file at random. The first argument is the length of the segment.
@@ -192,40 +192,40 @@ genRndSeg speed len start end fileName = Sam $ lift $ do
 	x <- random 0 1
 	let a = start + dl * x
 	let b = a + len
-	return $ S (readSegWav a b speed fileName) (Dur len)
+	return $ S (readSegWav a b speed fileName) (Dur $ sig len)
 	where dl = end - len
 
 -- | Reads a sample from the file in RAM.
 --
 -- > ramWav loopMode speed fileName
 ramWav :: LoopMode -> Sig -> String -> Sam
-ramWav loopMode speed fileName = Sam $ return $ S (ramSnd loopMode speed fileName) (Dur $ lengthSnd fileName)
+ramWav loopMode speed fileName = Sam $ return $ S (ramSnd loopMode speed fileName) (Dur $ sig $ lengthSnd fileName)
 
 -- | Reads a sample from the mono file in RAM.
 --
 -- > ramWav1 loopMode speed fileName
 ramWav1 :: LoopMode -> Sig -> String -> Sam
-ramWav1 loopMode speed fileName = Sam $ return $ S (let x = ramSnd1 loopMode speed fileName in (x, x)) (Dur $ lengthSnd fileName)
+ramWav1 loopMode speed fileName = Sam $ return $ S (let x = ramSnd1 loopMode speed fileName in (x, x)) (Dur $ sig $ lengthSnd fileName)
 
 -- | Constructs sample from mono wav or aiff files.
 wav1 :: String -> Sam
-wav1 fileName = Sam $ return $ S (let x = readSnd1 fileName in (x, x)) (Dur $ lengthSnd fileName)
+wav1 fileName = Sam $ return $ S (let x = readSnd1 fileName in (x, x)) (Dur $ sig $ lengthSnd fileName)
 
 -- | Constructs sample from mono wav that is played in reverse.
 wavr1 :: String -> Sam
-wavr1 fileName = Sam $ return $ S (let x = takeSnd len $ loopWav1 (-1) fileName in (x, x)) (Dur len)
+wavr1 fileName = Sam $ return $ S (let x = takeSnd (sig len) $ loopWav1 (-1) fileName in (x, x)) (Dur $ sig len)
 	where len = lengthSnd fileName
 
 -- | Constructs sample from the segment of a mono wav file. The start and end times are measured in seconds.
 --
 -- > seg begin end fileName
 seg1 :: D -> D -> String -> Sam
-seg1 start end fileName = Sam $ return $ S (let x = readSegWav1 start end 1 fileName in (x, x)) (Dur len)
+seg1 start end fileName = Sam $ return $ S (let x = readSegWav1 start end 1 fileName in (x, x)) (Dur $ sig len)
 	where len = end - start
 
 --- | Constructs reversed sample from segment of a mono audio file.
 segr1 :: D -> D -> String -> Sam
-segr1 start end fileName = Sam $ return $ S (let x = readSegWav1 start end (-1) fileName in (x, x)) (Dur len)
+segr1 start end fileName = Sam $ return $ S (let x = readSegWav1 start end (-1) fileName in (x, x)) (Dur $ sig len)
 	where len = end - start
 
 -- | Picks segments from the mono wav file at random. The first argument is the length of the segment.
@@ -249,17 +249,17 @@ genRndSeg1 speed len start end fileName = Sam $ lift $ do
 	x <- random 0 1
 	let a = start + dl * x
 	let b = a + len
-	return $ S (let y = readSegWav1 a b speed fileName in (y, y)) (Dur len)
+	return $ S (let y = readSegWav1 a b speed fileName in (y, y)) (Dur $ sig len)
 	where dl = end - len
 
 
-toSec :: Bpm -> D -> D
+toSec :: Bpm -> Sig -> Sig
 toSec bpm a = a * 60 / bpm
 
-toSecSig :: Bpm -> Sig -> Sig
-toSecSig bpm a = a * 60 / sig bpm
+toSecD :: Bpm -> D -> D
+toSecD bpm a = a * 60 / (ir bpm)
 
-addDur :: D -> Dur -> Dur
+addDur :: Sig -> Dur -> Dur
 addDur d x = case x of
 	Dur a  -> Dur $ d + a
 	InfDur -> InfDur
@@ -283,7 +283,7 @@ tfmS :: (Bpm -> S Sig2 -> S Sig2) -> Sam -> Sam
 tfmS f ra = Sam $ do
 	bpm <- ask
 	a <- unSam ra
-	return $ f bpm a	
+	return $ f bpm a
 
 setInfDur :: Sam -> Sam
 setInfDur = Sam . fmap (\a -> a { samDur = InfDur }) . unSam
@@ -291,13 +291,13 @@ setInfDur = Sam . fmap (\a -> a { samDur = InfDur }) . unSam
 -- | Makes the sampler broader. It's reciprocal of str
 --
 -- > wide k = str (1 / k)
-wide :: D -> Sam -> Sam
+wide :: Sig -> Sam -> Sam
 wide = str . recip
 
 -- | Plays a list of samples one after another.
 flow :: [Sam] -> Sam
 flow [] = 0
-flow as = foldr1 flow2 as 
+flow as = foldr1 flow2 as
 
 flow2 :: Sam -> Sam -> Sam
 flow2 (Sam ra) (Sam rb) = Sam $ do
@@ -316,10 +316,11 @@ genPick :: PickFun -> Sig -> [Sam] -> Sam
 genPick pickFun dt as = Sam $ do
 	bpm <- ask
 	xs <- sequence $ fmap unSam as
-	let ds = fmap (getDur . samDur)  xs
+	let ds = fmap (ir . getDur . samDur)  xs
 	let sigs = fmap samSig xs
-	return $ S (sched (\n -> return $ atTuple sigs $ sig n) $ fmap (\(dt, a) -> str dt $ temp a) $ pickFun (zip ds (fmap int [0..])) $ metroS bpm dt) InfDur 
-	where getDur x = case x of
+	return $ S (sched (\n -> return $ atTuple sigs $ sig n) $ fmap (\(dt, a) -> str (sig dt) $ temp a) $ pickFun (zip ds (fmap int [0..])) $ metroS bpm dt) InfDur
+	where
+		getDur x = case x of
 			InfDur -> -1
 			Dur d  -> d
 
@@ -338,9 +339,9 @@ type EnvFun = (Dur -> D -> D -> Sig)
 genEnv :: EnvFun -> D -> D -> Sam -> Sam
 genEnv env start end = tfmS f
 	where f bpm a = a { samSig = mul (env (samDur a) absStart absEnd) $ samSig a }
-			where 
-				absStart = toSec bpm start
-				absEnd   = toSec bpm end
+			where
+				absStart = toSecD bpm start
+				absEnd   = toSecD bpm end
 
 -- | A linear rise-decay envelope. Times a given in BPMs.
 --
@@ -349,25 +350,25 @@ linEnv :: D -> D -> Sam -> Sam
 linEnv = genEnv f
 	where f dur start end = case dur of
 			InfDur -> linseg [0, start, 1]
-			Dur d  -> linseg [0, start, 1, maxB 0 (d - start - end), 1, end , 0]
+			Dur d  -> linseg [0, start, 1, maxB 0 (ir d - start - end), 1, end , 0]
 
 -- | An exponential rise-decay envelope. Times a given in BPMs.
 --
 -- > expEnv rise dec sample
 expEnv :: D -> D -> Sam -> Sam
 expEnv = genEnv f
-	where 
+	where
 		f dur start end = case dur of
 			InfDur -> expseg [zero, start, 1]
-			Dur d  -> expseg [zero, start, 1, maxB 0 (d - start - end), 1, end , zero]
+			Dur d  -> expseg [zero, start, 1, maxB 0 (ir d - start - end), 1, end , zero]
 		zero = 0.00001
 
 genEnv1 :: (D -> Sig) -> Sam -> Sam
 genEnv1 envFun = tfmBy f
-	where 
+	where
 		f a = flip mul (samSig a) $ case samDur a of
 			InfDur -> 1
-			Dur d  -> envFun d
+			Dur d  -> envFun (ir d)
 
 
 -- | Parabolic envelope that starts and ends at zero and reaches maximum at the center.
@@ -390,11 +391,11 @@ eriseEnv = genEnv1 $ \d -> expseg [0.0001, d, 1]
 edecEnv :: Sam -> Sam
 edecEnv = genEnv1 $ \d -> expseg [1, d, 0.0001]
 
-type LoopFun = D -> D -> Sig2 -> Sig2
+type LoopFun = Sig -> Sig -> Sig2 -> Sig2
 
-genLoop :: LoopFun -> Sam -> Sam 
+genLoop :: LoopFun -> Sam -> Sam
 genLoop g = setInfDur . tfmS f
-	where 
+	where
 		f bpm a = a { samSig = case samDur a of
 			InfDur -> samSig a
 			Dur d  -> g bpm d (samSig a)
@@ -402,59 +403,59 @@ genLoop g = setInfDur . tfmS f
 
 
 -- | Plays the sample at the given period (in BPMs). The samples don't overlap.
-rep1 :: D -> Sam -> Sam
+rep1 :: Sig -> Sam -> Sam
 rep1 = rep . return
 
 -- | Plays the sample at the given period (in BPMs). The overlapped samples are mixed together.
-pat1 :: D -> Sam -> Sam
+pat1 :: Sig -> Sam -> Sam
 pat1 = pat . return
 
 -- | Plays the sample at the given pattern of periods (in BPMs). The samples don't overlap.
-rep :: [D] -> Sam -> Sam 
-rep dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
-	where notes bpm _ = har $ zipWith (\t dt-> singleEvent (toSec bpm t) (toSec bpm dt) unit) (patDurs dts) dts	 
-		
+rep :: [Sig] -> Sam -> Sam
+rep dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm) $ metroS bpm (sum dts)
+	where notes bpm = har $ zipWith (\t dt-> singleEvent (toSec bpm t) (toSec bpm dt) unit) (patDurs dts) dts
+
 -- | Plays the sample at the given pattern of periods (in BPMs). The overlapped samples are mixed together.
-pat :: [D] -> Sam -> Sam 
-pat dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
-	where notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts		
+pat :: [Sig] -> Sam -> Sam
+pat dts = genLoop $ \bpm d asig -> sched (const $ return asig) $ fmap (const $ notes bpm d) $ metroS bpm (sum dts)
+	where notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts
 
 -- | Plays the sample at the given pattern of periods (in BPMs) and sometimes skips the samples from playback. The overlapped samples are mixed together.
 -- The first argument is the probability of inclusion.
-rndPat :: Sig -> [D] -> Sam -> Sam 
-rndPat prob dts = genLoop $ \bpm d asig -> sched (const $ rndSkipInstr prob asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts)
-	where 
-		notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts	
+rndPat :: Sig -> [Sig] -> Sam -> Sam
+rndPat prob dts = genLoop $ \bpm d asig -> sched (const $ rndSkipInstr prob asig) $ fmap (const $ notes bpm d) $ metroS bpm (sum dts)
+	where
+		notes bpm d = har $ fmap (\t -> fromEvent $ Event (toSec bpm t) d unit) $ patDurs dts
 
 -- | Plays the sample at the given pattern of volumes and periods (in BPMs). The overlapped samples are mixed together.
 --
 -- > pat' volumes periods
-pat' :: [D] -> [D] -> Sam -> Sam 
-pat' vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
-	where 
-		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'		
+pat' :: [D] -> [Sig] -> Sam -> Sam
+pat' vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sum dts')
+	where
+		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'
 		instr asig v = return $ mul (sig v) asig
 		(vols', dts') = unzip $ lcmList vols dts
 
 rndSkipInstr probSig asig = do
 	let prob = ir probSig
-	ref <- newRef 0	
+	ref <- newRef 0
 	p <- random 0 (1 :: D)
-	whenD1 (p `lessThan` prob) $ 
+	whenD1 (p `lessThan` prob) $
 		writeRef ref asig
 	whenD1 (p `greaterThanEquals` prob) $
 		writeRef ref 0
-	readRef ref	
+	readRef ref
 
 -- | Plays the sample at the given pattern of volumes and periods (in BPMs) and sometimes skips the samples from playback.  The overlapped samples are mixed together.
 -- The first argument is the probability of inclusion.
 --
 -- > rndPat' probability volumes periods
-rndPat' :: Sig -> [D] -> [D] -> Sam -> Sam 
-rndPat' prob vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sig $ sum dts')
-	where 
-		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'		
-		instr asig v = mul (sig v) $ rndSkipInstr prob asig			
+rndPat' :: Sig -> [D] -> [Sig] -> Sam -> Sam
+rndPat' prob vols dts = genLoop $ \bpm d asig -> sched (instr asig) $ fmap (const $ notes bpm d) $ metroS bpm (sum dts')
+	where
+		notes bpm d = har $ zipWith (\v t -> singleEvent (toSec bpm t) d v) vols' $ patDurs dts'
+		instr asig v = mul (sig v) $ rndSkipInstr prob asig
 		(vols', dts') = unzip $ lcmList vols dts
 
 
@@ -466,9 +467,9 @@ lcmList as bs = take n $ zip (cycle as) (cycle bs)
 -- The segment length is given in BPMs.
 --
 -- > wall segLength
-wall :: D -> Sam -> Sam 
+wall :: Sig -> Sam -> Sam
 wall dt a = mean [b, del hdt b]
-	where 
+	where
 		hdt = 0.5 * dt
 		f = pat1 hdt . hatEnv . lim dt
 		b = f a
@@ -479,13 +480,13 @@ type Chord = [D]
 type Arp1Fun = Evt Unit -> Evt D
 
 arpInstr :: Sig2 -> D -> SE Sig2
-arpInstr asig k = return $ mapSig (scalePitch (sig k)) asig 
+arpInstr asig k = return $ mapSig (scalePitch (sig k)) asig
 
-patDurs :: [D] -> [D]
+patDurs :: [Sig] -> [Sig]
 patDurs dts = reverse $ snd $ foldl (\(counter, res) a -> (a + counter, counter:res)) (0, []) dts
 
 genArp1 :: Arp1Fun -> Sig -> Sam -> Sam
-genArp1 arpFun dt = genLoop $ \bpm d asig -> 
+genArp1 arpFun dt = genLoop $ \bpm d asig ->
 	sched (arpInstr asig) $ withDur d $ arpFun $ metroS bpm dt
 
 -- | Plays ascending arpeggio of samples.
@@ -505,69 +506,67 @@ arpOneOf1 = genArp1 . oneOf
 arpFreqOf1 :: [Sig] -> Chord -> Sig -> Sam -> Sam
 arpFreqOf1 freqs ch = genArp1 (freqOf (zip freqs ch))
 
-genArp :: Arp1Fun -> [D] -> Sam -> Sam
-genArp arpFun dts = genLoop $ \bpm d asig -> sched (arpInstr asig) $ fmap (notes bpm d) $ arpFun $ metroS bpm (sig $ sum dts)
-	where notes bpm d pchScale = har $ fmap (\t -> singleEvent (toSec bpm t) d pchScale) $ patDurs dts		
+genArp :: Arp1Fun -> [Sig] -> Sam -> Sam
+genArp arpFun dts = genLoop $ \bpm d asig -> sched (arpInstr asig) $ fmap (notes bpm d) $ arpFun $ metroS bpm (sum dts)
+	where notes bpm d pchScale = har $ fmap (\t -> singleEvent (toSec bpm t) d pchScale) $ patDurs dts
 
 -- | Plays ascending arpeggio of samples.
-arpUp :: Chord -> [D] -> Sam -> Sam
+arpUp :: Chord -> [Sig] -> Sam -> Sam
 arpUp = genArp . cycleE
 
 -- | Plays descending arpeggio of samples.
-arpDown :: Chord -> [D] -> Sam -> Sam
+arpDown :: Chord -> [Sig] -> Sam -> Sam
 arpDown ch = arpUp (reverse ch)
 
 -- | Plays arpeggio of samles with random notes from the chord.
-arpOneOf :: Chord -> [D] -> Sam -> Sam 
+arpOneOf :: Chord -> [Sig] -> Sam -> Sam
 arpOneOf = genArp . oneOf
 
 -- | Plays arpeggio of samles with random notes from the chord.
 -- We can assign the frequencies of the notes.
-arpFreqOf :: [Sig] -> Chord -> [D] -> Sam -> Sam
+arpFreqOf :: [Sig] -> Chord -> [Sig] -> Sam -> Sam
 arpFreqOf freqs ch = genArp (freqOf $ zip freqs ch)
 
 metroS :: Bpm -> Sig -> Evt Unit
-metroS bpm dt = metroE (recip $ toSecSig bpm dt)
+metroS bpm dt = metroE (recip $ toSec bpm dt)
 
 -- | The pattern is influenced by the Brian Eno's work "Music fo Airports".
 -- The argument is list of tripples:
 --
 -- > (delayTime, repeatPeriod, pitch)
--- 
+--
 -- It takes a Sample and plays it in the loop with given initial delay time.
 -- The third cell in the tuple pitch is a value for scaling of the pitch in tones.
-forAirports :: [(D, D, D)] -> Sam -> Sam
-forAirports xs sample = mean $ flip fmap xs $ 
-    \(delTime, loopTime, note) -> del delTime $ pat [loopTime] (atPch (sig note) sample)
+forAirports :: [(Sig, Sig, Sig)] -> Sam -> Sam
+forAirports xs sample = mean $ flip fmap xs $
+    \(delTime, loopTime, note) -> del delTime $ pat [loopTime] (atPch note sample)
 
 -- | The pattern is influenced by the Brian Eno's work "Music fo Airports".
 -- It's more generic than pattern @forAirport@
 -- The argument is list of tripples:
 --
 -- > (delayTime, repeatPeriod, Sample)
--- 
+--
 -- It takes a list of Samples and plays them in the loop with given initial delay time and repeat period.
-genForAirports :: [(D, D, Sam)] -> Sam
+genForAirports :: [(Sig, Sig, Sam)] -> Sam
 genForAirports xs = mean $ fmap (\(delTime, loopTime, sample) -> del delTime $ pat [loopTime] sample) xs
 
+arp1 :: (SigSpace a, Sigs a) => (D -> SE a) -> Sig -> Sig -> Int -> [D] -> a
+arp1 instr bpm dt n ch = sched (\(amp, cps) -> fmap (mul (sig amp)) $ instr cps) $
+	withDur (toSec bpm dt) $ cycleE (lcmList (1 : replicate (n - 1) 0.7) ch) $ metroS bpm dt
 
-
-arp1 :: (SigSpace a, Sigs a) => (D -> SE a) -> D -> D -> Int -> [D] -> a
-arp1 instr bpm dt n ch = sched (\(amp, cps) -> fmap (mul (sig amp)) $ instr cps) $ 
-	withDur (toSec bpm dt) $ cycleE (lcmList (1 : replicate (n - 1) 0.7) ch) $ metroS bpm (sig dt)
-
--- | The arpeggiator for the sequence of chords. 
+-- | The arpeggiator for the sequence of chords.
 --
--- > arpy instrument chordPeriod speedOfTheNote accentNumber chords 
+-- > arpy instrument chordPeriod speedOfTheNote accentNumber chords
 --
 -- The first argument is an instrument that takes in a frequency of
 -- the note in Hz. The second argument is the period of
--- chord change (in beats). The next argument is the speed 
+-- chord change (in beats). The next argument is the speed
 -- of the single note (in beats). The integer argument
 -- is number of notes in the group. Every n'th note is louder.
 -- The last argument is the sequence of chords. The chord is
 -- the list of frequencies.
-arpy :: (D -> SE Sig2) -> D -> D -> Int -> [[D]] -> Sam
+arpy :: (D -> SE Sig2) -> Sig -> Sig -> Int -> [[D]] -> Sam
 arpy instr chordPeriod speed accentNum chords = Sam $ do
 	bpm <- ask
 	res <- unSam $ loop $ flow $ map (linEnv 0.05 0.05 . fromSig2 chordPeriod . arp1 instr bpm speed accentNum) chords
@@ -588,7 +587,7 @@ atVolRnd k = bindSam (rndVol k)
 class ToSam a where
 	toSam :: a -> Sam
 
-limSam :: ToSam a => D -> a -> Sam
+limSam :: ToSam a => Sig -> a -> Sam
 limSam dt = lim dt . toSam
 
 instance ToSam Sig where
@@ -616,7 +615,7 @@ ramLoop winSize tempo pitch file = toSam $ loopRam winSize tempo pitch file
 
 -- | It's the same as readRam but wrapped in Sam (see "Csound.Air.Wav").
 ramRead :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
-ramRead winSize tempo pitch file = sig2 (lengthSnd file / ir tempo) $ readRam winSize tempo pitch file
+ramRead winSize tempo pitch file = sig2 (sig (lengthSnd file) / tempo) $ readRam winSize tempo pitch file
 
 -- | It's the same as loopSeg but wrapped in Sam (see "Csound.Air.Wav").
 segLoop :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
@@ -624,7 +623,7 @@ segLoop winSize ds tempo pitch file = toSam $ loopSeg winSize ds tempo pitch fil
 
 -- | It's the same as readSeg but wrapped in Sam (see "Csound.Air.Wav").
 segRead :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-segRead winSize ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readSeg winSize ds tempo pitch file
+segRead winSize ds@(kmin, kmax) tempo pitch file = sig2 ((kmax - kmin) / tempo) $ readSeg winSize ds tempo pitch file
 
 -- | It's the same as loopRel but wrapped in Sam (see "Csound.Air.Wav").
 relLoop :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
@@ -632,7 +631,7 @@ relLoop winSize ds tempo pitch file = toSam $ loopRel winSize ds tempo pitch fil
 
 -- | It's the same as readRel but wrapped in Sam (see "Csound.Air.Wav").
 relRead :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-relRead winSize ds@(kmin, kmax) tempo pitch file = sig2 (ir $ (kmax - kmin) / tempo) $ readRel winSize ds tempo pitch file
+relRead winSize ds@(kmin, kmax) tempo pitch file = sig2 ((kmax - kmin) / tempo) $ readRel winSize ds tempo pitch file
 
 -- | It's the same as loopRam1 but wrapped in Sam (see "Csound.Air.Wav").
 ramLoop1 :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
@@ -640,7 +639,7 @@ ramLoop1 winSize tempo pitch file = toSam $ loopRam1 winSize tempo pitch file
 
 -- | It's the same as readRam1 but wrapped in Sam (see "Csound.Air.Wav").
 ramRead1 :: Fidelity -> TempoSig -> PitchSig -> String -> Sam
-ramRead1 winSize tempo pitch file = sig1 (lengthSnd file / ir tempo) $ readRam1 winSize tempo pitch file
+ramRead1 winSize tempo pitch file = sig1 (sig (lengthSnd file) / tempo) $ readRam1 winSize tempo pitch file
 
 -- | It's the same as loopSeg1 but wrapped in Sam (see "Csound.Air.Wav").
 segLoop1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
@@ -648,7 +647,7 @@ segLoop1 winSize ds tempo pitch file = toSam $ loopSeg1 winSize ds tempo pitch f
 
 -- | It's the same as readSeg1 but wrapped in Sam (see "Csound.Air.Wav").
 segRead1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-segRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readSeg1 winSize ds tempo pitch file
+segRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 ((kmax - kmin) / tempo) $ readSeg1 winSize ds tempo pitch file
 
 -- | It's the same as loopRel1 but wrapped in Sam (see "Csound.Air.Wav").
 relLoop1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
@@ -656,7 +655,7 @@ relLoop1 winSize ds tempo pitch file = toSam $ loopRel1 winSize ds tempo pitch f
 
 -- | It's the same as readRel1 but wrapped in Sam (see "Csound.Air.Wav").
 relRead1 :: Fidelity -> (Sig, Sig) -> TempoSig -> PitchSig -> String -> Sam
-relRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 (ir $ (kmax - kmin) / tempo) $ readRel1 winSize ds tempo pitch file
+relRead1 winSize ds@(kmin, kmax) tempo pitch file = sig1 ((kmax - kmin) / tempo) $ readRel1 winSize ds tempo pitch file
 
 -----------------------
 -- temposcale

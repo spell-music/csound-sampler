@@ -90,7 +90,7 @@ genSimInits gcat numBeats as = source $ do
 	curRefs <- mapM (const $ newGlobalRef (0 :: Sig)) ids
 	currents <- mapM readRef curRefs
 	zipWithM_ (\w val -> w val) writes currents
-	let mkReaders bpm = zipWithM_ (\r ref -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
+	let mkReaders bpm = zipWithM_ (\r ref -> runEvt (syncBpm (bpm / sig (int numBeats)) $ snaps r) $ \x -> do
 			writeRef ref (sig x)
 		) reads curRefs
 	let res = bindBpm (\bpm x -> mkReaders bpm >> return x) $ groupToggles mean sams $ fmap snaps currents
@@ -136,7 +136,7 @@ genTogWithRef gcat numBeats as = source $ do
 	curRef <- newGlobalRef (0 :: Sig)
 	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
-	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
+	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (bpm / (sig $ int numBeats)) $ snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
 			writeRef curRef 0
 		when1 (sig x ==* 1) $ do
@@ -188,13 +188,13 @@ live numBeats names sams = source $ do
 mkLiveRow :: Int -> (String, Gui) -> [Sam] -> Source (Sam, Ref Sig)
 mkLiveRow numBeats (name, gVol) xs = genTogWithRef (\xs -> ver $ xs ++ [gVol]) numBeats (zip (name : repeat "") xs)
 
-mkLiveSceneRow :: Int -> Gui -> [Sig] -> [Ref Sig] -> SE (Gui, D -> SE ())
+mkLiveSceneRow :: Int -> Gui -> [Sig] -> [Ref Sig] -> SE (Gui, Sig -> SE ())
 mkLiveSceneRow numBeats gMaster ids refs = do
 	(guis, writes, reads) <- fmap unzip3 $ mapM (unSinkSource . flip setToggleSig False) names
 	curRef <- newGlobalRef (0 :: Sig)
 	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
-	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (sig $ bpm / int numBeats) $ snaps r) $ \x -> do
+	let mkReaders bpm = zipWithM_ (\r i -> runEvt (syncBpm (bpm / sig (int numBeats)) $ snaps r) $ \x -> do
 		when1 (sig x ==* 0 &&* current ==* i) $ do
 			writeRef curRef 0
 			mapM_ (flip writeRef 0) refs
@@ -250,7 +250,7 @@ mixSam name bpm sam = (name, runSam bpm sam)
 -- | Creates fx-unit from sampler widget.
 --
 -- > uisam name isOn bpm samWidget
-uiSam :: String -> Bool -> D -> Source Sam -> Source Fx2
+uiSam :: String -> Bool -> Sig -> Source Sam -> Source Fx2
 uiSam name onOff bpm sam = uiSig name onOff (joinSource $ mapSource (runSam bpm) sam)
 	where
 		joinSource :: Source (SE Sig2) -> Source Sig2

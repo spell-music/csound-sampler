@@ -15,21 +15,29 @@ import Csound.Base
 type Sam = Sample Sig2
 
 instance RenderCsd Sam where
-    renderCsdBy opt sample = renderCsdBy opt (runSam (120 * 4) sample)
+    renderCsdBy opt sample = renderCsdBy opt (runSam (getBpm * 4) sample)
 
 instance RenderCsd (Source Sam) where
-	renderCsdBy opt sample = renderCsdBy opt (lift1 (runSam (120 * 4)) sample)	
+	renderCsdBy opt sample = renderCsdBy opt (lift1 (runSam (getBpm * 4)) sample)
+
+instance RenderCsd (SE Sam) where
+    renderCsdBy opt sample = renderCsdBy opt (runSam (getBpm * 4) =<< sample)
+
+instance RenderCsd (SE (Source Sam)) where
+    renderCsdBy opt sample = renderCsdBy opt $ Source $ do
+    	sample' <- sample
+    	unSource $ lift1 (runSam (getBpm * 4)) sample'
 
 runSam :: Bpm -> Sam -> SE Sig2
 runSam bpm x = fmap samSig $ runReaderT (unSam x) bpm
 
-data Dur = Dur D | InfDur
+data Dur = Dur Sig | InfDur
 
 -- | The Beats Per Minute measure (BPM). Almost all values are measured in BPMs.
-type Bpm = D
+type Bpm = Sig
 
 -- | The generic type for samples.
-newtype Sample a = Sam { unSam :: ReaderT Bpm SE (S a) 
+newtype Sample a = Sam { unSam :: ReaderT Bpm SE (S a)
 	} deriving (Functor)
 
 instance Applicative Sample where
@@ -38,7 +46,7 @@ instance Applicative Sample where
 
 data S a = S
 	{ samSig :: a
-	, samDur :: Dur 
+	, samDur :: Dur
 	} deriving (Functor)
 
 instance Applicative S where
@@ -63,6 +71,12 @@ instance Fractional a => Fractional (Sample a) where
 instance SigSpace a => SigSpace (Sample a) where
 	mapSig f = fmap (mapSig f)
 
+instance SigSpace2 a => SigSpace2 (Sample a) where
+	mapSig2 f = fmap (mapSig2 f)
+
+instance BindSig2 a => BindSig2 (Sample a) where
+	bindSig2 f = return . bindSam (bindSig2 f)
+
 -- Lifters
 
 -- | Hides the effects inside sample.
@@ -74,14 +88,14 @@ liftSam (Sam ra) = Sam $ do
 -- | Transforms the sample with BPM.
 mapBpm :: (Bpm -> a -> b) -> Sample a -> Sample b
 mapBpm f a = Sam $ do
-	bpm <- ask	
+	bpm <- ask
 	unSam $ fmap (f bpm) a
 
 -- | Transforms the sample with BPM.
 mapBpm2 :: (Bpm -> a -> b -> c) -> Sample a -> Sample b -> Sample c
 mapBpm2 f a b = Sam $ do
-	bpm <- ask	
-	unSam $ liftA2 (f bpm) a b	
+	bpm <- ask
+	unSam $ liftA2 (f bpm) a b
 
 -- | Lifts bind on stereo signals to samples.
 bindSam :: (a -> SE b) -> Sample a -> Sample b
