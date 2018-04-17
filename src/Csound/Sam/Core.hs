@@ -24,9 +24,9 @@ instance RenderCsd (SE Sam) where
     renderCsdBy opt sample = renderCsdBy opt (runSam (getBpm * 4) =<< sample)
 
 instance RenderCsd (SE (Source Sam)) where
-    renderCsdBy opt sample = renderCsdBy opt $ Source $ do
+    renderCsdBy opt sample = renderCsdBy opt $ do
     	sample' <- sample
-    	unSource $ lift1 (runSam (getBpm * 4)) sample'
+    	lift1 (runSam (getBpm * 4)) sample'
 
 runSam :: Bpm -> Sam -> SE Sig2
 runSam bpm x = fmap samSig $ runReaderT (unSam x) bpm

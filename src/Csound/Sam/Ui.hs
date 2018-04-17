@@ -46,7 +46,7 @@ genFreeSim gcat as = genFreeSimInits gcat $ fmap (\(a, b) -> (a, b, False)) as
 
 genFreeSimInits :: ([Gui] -> Gui) -> [(String, Sam, Bool)] -> Source Sam
 genFreeSimInits gcat as = source $ do
-	(guis, ts) <- fmap unzip $ zipWithM (\a b -> unSource $ toggle a b) names initVals
+	(guis, ts) <- fmap unzip $ zipWithM (\a b -> toggle a b) names initVals
 	let res = groupToggles mean sams ts
 	return (gcat guis, res)
 	where
@@ -63,7 +63,7 @@ hfreeTog = genFreeTog hor
 
 genFreeTog :: ([Gui] -> Gui) -> [(String, Sam)] -> Source Sam
 genFreeTog gcat as = source $ do
-	(guis, writes, reads) <- fmap unzip3 $ mapM (unSinkSource . flip setToggleSig False) names
+	(guis, writes, reads) <- fmap unzip3 $ mapM (flip setToggleSig False) names
 	curRef <- newGlobalRef (0 :: Sig)
 	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
@@ -86,7 +86,7 @@ genSim gcat numBeats as = genSimInits gcat numBeats $ fmap (\(a, b) -> (a, b, Fa
 
 genSimInits :: ([Gui] -> Gui) -> Int -> [(String, Sam, Bool)] -> Source Sam
 genSimInits gcat numBeats as = source $ do
-	(guis, writes, reads) <- fmap unzip3 $ zipWithM (\a b -> unSinkSource $ setToggleSig a b) names initVals
+	(guis, writes, reads) <- fmap unzip3 $ zipWithM (\a b -> setToggleSig a b) names initVals
 	curRefs <- mapM (const $ newGlobalRef (0 :: Sig)) ids
 	currents <- mapM readRef curRefs
 	zipWithM_ (\w val -> w val) writes currents
@@ -128,11 +128,11 @@ hsimWith = genSimInits hor
 
 
 genTog :: ([Gui] -> Gui) -> Int -> [(String, Sam)] -> Source Sam
-genTog gcat numBeats as = Source $ fmap (\(g, x) -> (g, fst x)) $ unSource $ genTogWithRef gcat numBeats as
+genTog gcat numBeats as = fmap (\(g, x) -> (g, fst x)) $ genTogWithRef gcat numBeats as
 
 genTogWithRef :: ([Gui] -> Gui) -> Int -> [(String, Sam)] -> Source (Sam, Ref Sig)
 genTogWithRef gcat numBeats as = source $ do
-	(guis, writes, reads) <- fmap unzip3 $ mapM (unSinkSource . flip setToggleSig False) names
+	(guis, writes, reads) <- fmap unzip3 $ mapM (flip setToggleSig False) names
 	curRef <- newGlobalRef (0 :: Sig)
 	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
@@ -174,10 +174,10 @@ htog = genTog hor
 -- in row-wise fashion.
 live :: Int -> [String] -> [Sam] -> Source Sam
 live numBeats names sams = source $ do
-	(gVols, vols) <- fmap unzip $  mapM  (unSource . defSlider) $ replicate n "vol"
-	(gs, xs) <- fmap unzip $ zipWithM (\a b -> unSource $ mkLiveRow numBeats a b) (zip names gVols) rows
+	(gVols, vols) <- fmap unzip $  mapM  defSlider $ replicate n "vol"
+	(gs, xs) <- fmap unzip $ zipWithM (\a b -> mkLiveRow numBeats a b) (zip names gVols) rows
 	let (sigs, refs) = unzip xs
-	(gMaster, masterVol) <- unSource $ defSlider "master"
+	(gMaster, masterVol) <- defSlider "master"
 	(g, proc) <- mkLiveSceneRow numBeats gMaster ids refs
 	return $ (hor $ g : gs, bindBpm (\bpm asig -> proc bpm >> return asig) $ mul masterVol $ mean $ zipWith mul vols sigs)
 	where
@@ -190,7 +190,7 @@ mkLiveRow numBeats (name, gVol) xs = genTogWithRef (\xs -> ver $ xs ++ [gVol]) n
 
 mkLiveSceneRow :: Int -> Gui -> [Sig] -> [Ref Sig] -> SE (Gui, Sig -> SE ())
 mkLiveSceneRow numBeats gMaster ids refs = do
-	(guis, writes, reads) <- fmap unzip3 $ mapM (unSinkSource . flip setToggleSig False) names
+	(guis, writes, reads) <- fmap unzip3 $ mapM (flip setToggleSig False) names
 	curRef <- newGlobalRef (0 :: Sig)
 	current <- readRef curRef
 	zipWithM_ (\w i -> w $ ifB (current ==* i) 1 0) writes ids
@@ -221,14 +221,14 @@ defSlider tag = slider tag (linSpan 0 1) 0.5
 -- between dry and wet signals.
 liveEf :: Int -> [String] -> [Sam] -> (Double, Fx2) -> [(Double, Fx2)] -> Source Sam
 liveEf numBeats names sams masterEff effs = source $ do
-	(gVols, vols) <- fmap unzip $  mapM (unSource . defSlider) $ replicate n "vol"
+	(gVols, vols) <- fmap unzip $  mapM defSlider $ replicate n "vol"
 	(gEffs, effCtrls) <- fmap unzip $
-		mapM (\(tag, initVal) -> unSource $ slider tag (linSpan 0 1) initVal) $ zip (replicate n "eff") (fmap fst effs)
+		mapM (\(tag, initVal) -> slider tag (linSpan 0 1) initVal) $ zip (replicate n "eff") (fmap fst effs)
 	let gCtrls = zipWith ctrlGui gEffs gVols
-	(gs, xs) <- fmap unzip $ zipWithM (\a b -> unSource $ mkLiveRow numBeats a b) (zip names gCtrls) rows
+	(gs, xs) <- fmap unzip $ zipWithM (\a b -> mkLiveRow numBeats a b) (zip names gCtrls) rows
 	let (sigs, refs) = unzip xs
-	(gMaster, masterVol) <- unSource $ defSlider "master"
-	(gMasterEff, masterEffCtrl) <- unSource $slider "eff" (linSpan 0 1) (fst masterEff)
+	(gMaster, masterVol) <- defSlider "master"
+	(gMasterEff, masterEffCtrl) <- slider "eff" (linSpan 0 1) (fst masterEff)
 	(g, proc) <- mkLiveSceneRow numBeats (ctrlGui gMasterEff gMaster) ids refs
 	return $ (hor $ g : gs, bindBpm (\bpm asig -> proc bpm >> return asig) $
 		mul masterVol $ appEff (snd  masterEff) masterEffCtrl $
@@ -255,13 +255,13 @@ uiSam name onOff bpm sam = uiSig name onOff (joinSource $ mapSource (runSam bpm)
 	where
 		joinSource :: Source (SE Sig2) -> Source Sig2
 		joinSource a = source $ do
-			(g, mres) <- unSource a
+			(g, mres) <- a
 			res <- mres
 			return (g, res)
 
 -- | Adds gain slider on top of the widget.
 addGain :: SigSpace a => Source a -> Source a
 addGain x = source $ do
-	(g, asig) <- unSource x
-	(gainGui, gain) <- unSource $ slider "gain" (linSpan 0 1) 0.5
+	(g, asig) <- x
+	(gainGui, gain) <- slider "gain" (linSpan 0 1) 0.5
 	return (ver [sca 0.15 gainGui, g], mul gain asig)
