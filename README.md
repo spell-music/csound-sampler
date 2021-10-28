@@ -1,6 +1,8 @@
 csound-sampler
 ===============================
 
+The repo is archived and moved to monorepo [csound-expression](https://github.com/spell-music/csound-expression)
+
 A csound-sampler is an easy to use sampler based on csound-expression library.
 
 We can load and play audio files. We can play them back in loops,
